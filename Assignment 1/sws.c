@@ -3,6 +3,7 @@
 #include <stdio.h>        /* Standard IO. */
 #include <sys/socket.h>   /* Defines const/structs we need for sockets. */
 #include <netinet/in.h>   /* Defines const/structs we need for internet domain addresses. */
+#include <string.h>       /* String functions */
 #include <stdlib.h>       /* Builtin functions */
 
 /*
@@ -29,6 +30,9 @@ int main(int argc, char *argv[]) {
       u_long  s_addr
   */
 
+  /* The directory we're serving from. */
+  char dir[256];
+
   /* Buffer for reading/writing characters from the socket */
   char buffer[1024];
 
@@ -41,4 +45,11 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
+  /* Assign our Port */
+  port = atoi(argv[1]);
+  /* Assign our dir */
+  strncpy(dir, argv[2], 256);
+
+  /* Just print some debugging garbage. */
+  fprintf(stderr, "%d, %s\n", port, dir);
 }

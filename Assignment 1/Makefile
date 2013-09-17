@@ -1,4 +1,4 @@
-all: sws
+all: clean sws
 
 sws:
 	gcc --ansi sws.c -o sws
