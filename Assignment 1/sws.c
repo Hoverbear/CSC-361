@@ -74,34 +74,17 @@ int main(int argc, char *argv[]) {
   /* Start listening, only allow 5 waiting people */
   listen(socket_fd, 5);
 
-  /* Trying keypresses
-   * Thanks to: http://stackoverflow.com/posts/7411735/revisions
-   */
-  struct termios old,new;
-  tcgetattr(fileno(stdin),&old);
-  tcgetattr(fileno(stdin),&new);
-  cfmakeraw(&new);
-  tcsetattr(fileno(stdin),TCSANOW,&new);
-  fputs("Press any key to continue.",stdout);
-  fflush(NULL);
-  int key = fgetc(stdin);
-  tcsetattr(fileno(stdin),TCSANOW,&old);
-
-  if (key == 113) {
-    exit(0);
-  }
-
-  /* Start up an `accept()` call, which will block the process until we get a connection. */
-  client_length = sizeof(client_address);
-  client_socket_fd = accept(socket_fd, (struct sockaddr*) &client_address, &client_length);
-  if (client_socket_fd < 0) {
-    fprintf(stderr, "Error accepting a connection on port: %d\n", port);
-  }
-
-
   /* Clear our read buffer, then read into it. */
-  bzero(buffer, 1024);
   while (1) {
+    /* Start up an `accept()` call, which will block the process until we get a connection. */
+    client_length = sizeof(client_address);
+    client_socket_fd = accept(socket_fd, (struct sockaddr*) &client_address, &client_length);
+    if (client_socket_fd < 0) {
+      fprintf(stderr, "Error accepting a connection on port: %d\n", port);
+    }
+    
+    /* Zero the buffer */
+    bzero(buffer, 1024);
     num_chars = read(client_socket_fd, buffer, 1024);
     if (num_chars < 0)
     {
