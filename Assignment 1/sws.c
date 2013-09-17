@@ -5,6 +5,8 @@
 #include <netinet/in.h>   /* Defines const/structs we need for internet domain addresses. */
 #include <string.h>       /* String functions */
 #include <stdlib.h>       /* Builtin functions */
+#include <termios.h>      /* Keypress testing. */
+#include <unistd.h>       /* Keypress testing.
 
 /*
  * A simple web server.
@@ -72,6 +74,23 @@ int main(int argc, char *argv[]) {
   /* Start listening, only allow 5 waiting people */
   listen(socket_fd, 5);
 
+  /* Trying keypresses
+   * Thanks to: http://stackoverflow.com/posts/7411735/revisions
+   */
+  struct termios old,new;
+  tcgetattr(fileno(stdin),&old);
+  tcgetattr(fileno(stdin),&new);
+  cfmakeraw(&new);
+  tcsetattr(fileno(stdin),TCSANOW,&new);
+  fputs("Press any key to continue.",stdout);
+  fflush(NULL);
+  int key = fgetc(stdin);
+  tcsetattr(fileno(stdin),TCSANOW,&old);
+
+  if (key == 113) {
+    exit(0);
+  }
+
   /* Start up an `accept()` call, which will block the process until we get a connection. */
   client_length = sizeof(client_address);
   client_socket_fd = accept(socket_fd, (struct sockaddr*) &client_address, &client_length);
@@ -79,7 +98,6 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Error accepting a connection on port: %d\n", port);
   }
 
-  /* By now, we have a connected user */
 
   /* Clear our read buffer, then read into it. */
   bzero(buffer, 1024);
@@ -93,9 +111,8 @@ int main(int argc, char *argv[]) {
 
     /* Print the message we got. */
     fprintf(stderr, "%s", buffer);
-  };
+  }
 
-  /* Just print some debugging garbage. */
-  fprintf(stderr, "%d, %s\n", port, dir);
+  /* Cleanly exit */
   exit(0);
 }
