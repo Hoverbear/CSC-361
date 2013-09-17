@@ -83,15 +83,17 @@ int main(int argc, char *argv[]) {
 
   /* Clear our read buffer, then read into it. */
   bzero(buffer, 1024);
-  num_chars = read(client_socket_fd, buffer, 1024);
-  if (num_chars < 0)
-  {
-    fprintf(stderr, "Error reading from the socket on port: %d\n", port);
+  while (1) {
+    num_chars = read(client_socket_fd, buffer, 1024);
+    if (num_chars < 0)
+    {
+      fprintf(stderr, "Error reading from the socket on port: %d\n", port);
 
-  }
+    }
 
-  /* Print the message we got. */
-  fprintf(stderr, "%s\n", buffer);
+    /* Print the message we got. */
+    fprintf(stderr, "%s", buffer);
+  };
 
   /* Just print some debugging garbage. */
   fprintf(stderr, "%d, %s\n", port, dir);
