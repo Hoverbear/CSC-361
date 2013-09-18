@@ -35,7 +35,7 @@ void *quit_worker() {
   res=tcgetattr(STDIN_FILENO, &org_opts);
       /*---- set new terminal parms --------*/
   memcpy(&new_opts, &org_opts, sizeof(new_opts));
-  new_opts.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHOK | ECHONL | ECHOPRT | ECHOKE | ICRNL);
+  new_opts.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHOK | ECHONL | ICRNL);
   tcsetattr(STDIN_FILENO, TCSANOW, &new_opts);
   do {                  /* CHANGED */
     key=getchar();      /* CHANGED */
