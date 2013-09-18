@@ -22,7 +22,7 @@ struct request {
  * Called via a pthread to watch for exit signals.
  */
 void *quit_worker() {
-  int key=0;
+  int key;
 
   /* --- BEGIN DERIVED CODE :: Found http://stackoverflow.com/questions/2984307/c-key-pressed-in-linux-console/2984565#2984565 */
   struct termios org_opts, new_opts;
