@@ -22,11 +22,23 @@ struct request {
  * Called via a pthread to watch for exit signals.
  */
 void *quit_worker() {
-  char c;
-  do {
-    c = getchar();
-  } while (c != 113);
-  fprintf(stdout, "Got kill signal. \n");
+  int key=0;
+
+  /* --- BEGIN DERIVED CODE :: Found http://stackoverflow.com/questions/2984307/c-key-pressed-in-linux-console/2984565#2984565 */
+  struct termios org_opts, new_opts;
+  int res=0;
+      /*-----  store old settings -----------*/
+  res=tcgetattr(STDIN_FILENO, &org_opts);
+      /*---- set new terminal parms --------*/
+  memcpy(&new_opts, &org_opts, sizeof(new_opts));
+  new_opts.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHOK | ECHONL | ECHOPRT | ECHOKE | ICRNL);
+  tcsetattr(STDIN_FILENO, TCSANOW, &new_opts);
+  do {                  /* CHANGED */
+    key=getchar();      /* CHANGED */
+  } while(key != 113);  /* CHANGED */
+      /*------  restore old settings ---------*/
+  res=tcsetattr(STDIN_FILENO, TCSANOW, &org_opts);
+  /* --- END DERIVED CODE */
   exit(0);
   return((void *) 0); 
 }
@@ -39,8 +51,8 @@ void *quit_worker() {
  */ 
  void *request_worker(void *pointer) {
   struct request *req = pointer;
-  fprintf(stderr, "IP: %s\n", inet_ntoa(req->address.sin_addr));
-  fprintf(stderr, "Buffer: %s\n", req->buffer);
+  fprintf(stderr, "IP: '%s'\n", inet_ntoa(req->address.sin_addr));
+  fprintf(stderr, "Buffer: '%s'\n", req->buffer);
   return((void *) 0); 
  }
 
@@ -111,15 +123,13 @@ int main(int argc, char *argv[]) {
     request->origin_socket = socket_fd;
     request->address_size = sizeof(request->address);
 
-    fprintf(stderr, "%d\n",  request->address_size);
-
     /* Get! */
     int bytes = recvfrom(request->origin_socket, &request->buffer, 255, 0, (struct sockaddr *)&request->address, (socklen_t*) &request->address_size);
     if (bytes == -1) {
       fprintf(stderr, "Error reading from socket.\n");
     }
 
-    fprintf(stderr, "Bytes: %d\n", bytes);
+    fprintf(stderr, "Bytes: '%d'\n", bytes);
     /* terminate the string */
     request->buffer[bytes] = '\0';
 
