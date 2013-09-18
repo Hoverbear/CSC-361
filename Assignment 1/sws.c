@@ -111,8 +111,10 @@ int main(int argc, char *argv[]) {
     request->origin_socket = socket_fd;
     request->address_size = sizeof(request->address);
 
+    fprintf(stderr, "%d\n",  request->address_size);
+
     /* Get! */
-    int bytes = recvfrom(request->origin_socket, &request->buffer, 255, 0, (struct sockaddr *)&request->address, &request->address_size);
+    int bytes = recvfrom(request->origin_socket, &request->buffer, 255, 0, (struct sockaddr *)&request->address, (socklen_t*) &request->address_size);
     if (bytes == -1) {
       fprintf(stderr, "Error reading from socket.\n");
     }
