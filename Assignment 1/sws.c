@@ -100,9 +100,6 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Error on binding to port: %d\n", port);
     exit(-1);
   }
-  
-  /* Start listening, only allow 5 waiting people */
-  listen(socket_fd, 5);
 
   /* Spin up a worker thread. */
   pthread_t quit_thread;
