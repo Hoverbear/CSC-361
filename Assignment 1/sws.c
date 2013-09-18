@@ -54,6 +54,8 @@ void *quit_worker() {
   fprintf(stderr, "IP: '%s'\n", inet_ntoa(req->address.sin_addr));
   fprintf(stderr, "Buffer: '%s'\n", req->buffer);
   return((void *) 0); 
+
+  free(pointer);
  }
 
 /*
@@ -127,9 +129,9 @@ int main(int argc, char *argv[]) {
     int bytes = recvfrom(request->origin_socket, &request->buffer, 255, 0, (struct sockaddr *)&request->address, (socklen_t*) &request->address_size);
     if (bytes == -1) {
       fprintf(stderr, "Error reading from socket.\n");
+      exit(-1);
     }
 
-    fprintf(stderr, "Bytes: '%d'\n", bytes);
     /* terminate the string */
     request->buffer[bytes] = '\0';
 
