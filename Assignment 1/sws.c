@@ -10,6 +10,10 @@
 #include <termios.h>      /* Keypress testing. */
 #include <unistd.h>       /* Keypress testing. */
 
+/* Request Struct
+ * --------------
+ * Used for threading requests.
+ */
 struct request {
   int origin_socket;
   struct sockaddr_in address;
@@ -47,7 +51,7 @@ void *quit_worker() {
  * --------------
  * Called via pthread to respond to a socket request.
  * Params:
- *   - 
+ *   - struct request pointer
  */ 
  void *request_worker(void *pointer) {
   struct request *req = pointer;
