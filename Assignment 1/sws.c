@@ -39,7 +39,7 @@ void *quit_worker() {
  */ 
  void *request_worker(void *pointer) {
   struct request *req = pointer;
-  fprintf(stderr, "IP: %s\n", inet_ntoa(*&req->address.sin_addr));
+  fprintf(stderr, "IP: %s\n", inet_ntoa(req->address.sin_addr));
   fprintf(stderr, "Buffer: %s\n", req->buffer);
   return((void *) 0); 
  }
