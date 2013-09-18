@@ -1,4 +1,3 @@
-
 #include <sys/types.h>    /* Defines data types used in system calls. */
 #include <stdio.h>        /* Standard IO. */
 #include <sys/socket.h>   /* Defines const/structs we need for sockets. */
@@ -54,12 +53,43 @@ void *quit_worker() {
  *   - struct request pointer
  */ 
  void *request_worker(void *pointer) {
+  /* Setup */
   struct request *req = pointer;
-  fprintf(stderr, "IP: '%s'\n", inet_ntoa(req->address.sin_addr));
-  fprintf(stderr, "Buffer: '%s'\n", req->buffer);
-  return((void *) 0); 
+  int status;
+  char res[256];  /* The response we'll send. */
+  char path[256]; /* The file that is requested. */
 
+  /* DEBUG */
+  fprintf(stderr, "DEBUG: IP    : '%s'\n", inet_ntoa(req->address.sin_addr));
+  fprintf(stderr, "DEBUG: Buffer: '%s'\n", req->buffer);
+
+  /* Find the start of the path */ 
+  int path_start = 0;
+  while (req->buffer[path_start] != '/') { /* GET / HTTP/1.0 */
+    path_start += 1;
+  }
+
+  /* Find the end of the path */
+  int path_end = path_start + 1;
+  while (req->buffer[path_end] != ' ') { /* GET / HTTP/1.0 */
+    path_end += 1;
+  }
+
+  /* Copy the path */
+  strncpy(path, &req->buffer[path_start], path_end - path_start);
+  path[strlen(path)+1] = '\0';
+
+  fprintf(stderr, "DEBUG: PATH(%d, %d): '%s'\n", path_start, path_end, path);
+
+  /* Repond to the request */
+  status = sendto(req->origin_socket, path, strlen(path), 0, (struct sockaddr *)&req->address, req->address_size);
+  if (status == -1) {
+    fprintf(stderr, "Failed to respond to client: %s\n", inet_ntoa(req->address.sin_addr));
+  };
+
+  /* Cleanup */
   free(pointer);
+  return((void *) 0); 
  }
 
 /*
@@ -145,6 +175,7 @@ int main(int argc, char *argv[]) {
   } while (1);
 
   /* Cleanly exit */
+  close(socket_fd);
   pthread_join(quit_thread, 0);
   exit(0);
 }
