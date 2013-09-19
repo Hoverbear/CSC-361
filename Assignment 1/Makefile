@@ -2,7 +2,7 @@
 all: clean sws
 
 run: clean sws
-	./sws 8080 stuff
+	./sws 8080 www
 
 sws:
 	gcc --ansi sws.c -o sws -pthread -Wall

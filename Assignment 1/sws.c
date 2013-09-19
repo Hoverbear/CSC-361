@@ -18,6 +18,7 @@ struct request {
   struct sockaddr_in address;
   int address_size;
   char buffer[256];
+  char dir[256];
 };
 
 /* Quit Worker
@@ -56,7 +57,6 @@ void *quit_worker() {
   /* Setup */
   struct request *req = pointer;
   int status;
-  char res[256];  /* The response we'll send. */
   char path[256]; /* The file that is requested. */
 
   /* DEBUG */
@@ -81,11 +81,27 @@ void *quit_worker() {
 
   fprintf(stderr, "DEBUG: PATH(%d, %d): '%s'\n", path_start, path_end, path);
 
-  /* Repond to the request */
-  status = sendto(req->origin_socket, path, strlen(path), 0, (struct sockaddr *)&req->address, req->address_size);
-  if (status == -1) {
-    fprintf(stderr, "Failed to respond to client: %s\n", inet_ntoa(req->address.sin_addr));
-  };
+  /* Get the file */
+  FILE *target = fopen(strncat(req->dir,path, 256), "r");
+  if (target == NULL) {
+    fprintf(stderr, "Couldn't open file.\n");
+    exit(-1);
+  }
+  fprintf(stderr, "Prepping response.\n");
+  char* response = calloc(256, sizeof(char));
+  if (fgets(response, 256, target) != NULL) {
+    /* Repond to the request */
+    fprintf(stderr, "Sending response\n");
+    if (sendto(req->origin_socket,
+               response,
+               strlen(response),
+               0,
+               (struct sockaddr *)&req->address,
+               req->address_size) == -1)
+    {
+      fprintf(stderr, "Failed to respond to client: %s\n", inet_ntoa(req->address.sin_addr));
+    };
+  }
 
   /* Cleanup */
   free(pointer);
@@ -158,6 +174,7 @@ int main(int argc, char *argv[]) {
     struct request *request = calloc(1, sizeof *request);
     request->origin_socket = socket_fd;
     request->address_size = sizeof(request->address);
+    strncpy(request->dir, dir, 256);
 
     /* Get! */
     int bytes = recvfrom(request->origin_socket, &request->buffer, 255, 0, (struct sockaddr *)&request->address, (socklen_t*) &request->address_size);
