@@ -2,6 +2,7 @@
 #include <stdio.h>        /* Standard IO. */
 #include <sys/socket.h>   /* Defines const/structs we need for sockets. */
 #include <netinet/in.h>   /* Defines const/structs we need for internet domain addresses. */
+#include <sys/stat.h>
 #include <arpa/inet.h>
 #include <string.h>       /* String functions */
 #include <stdlib.h>       /* Builtin functions */
@@ -75,35 +76,51 @@ void *request_worker(void *pointer) {
     path_end += 1;
   }
 
+  if (path_end < path_start) {
+    fprintf(stderr, "Malformed URL\n");
+    exit(-1);
+  }
   /* Copy the path */
   strncpy(path, &req->buffer[path_start], path_end - path_start);
   path[strlen(path)+1] = '\0';
 
   /* Get the file, dump it to file_read, set the status. */
-  FILE *target = fopen(strncat(req->dir,path, 256), "r");
+  FILE* target;
   char* file_read; /* The file contents requested. */
   long file_size = 0;
-  if (target == NULL) {
-    /* 404 error */
+  char* full_path = strncat(req->dir,path, 256);
+  /* See if we can read. */
+  struct stat fileStat;
+  if (stat(full_path,&fileStat) < 0) {
+    fprintf(stderr, "stat mode: %d\n", fileStat.st_mode);
+    /* There is no file */
     status = "404 Not Found";
   }
+  else if (!fileStat.st_mode) {
+    fprintf(stderr, "stat mode: %d\n", fileStat.st_mode);
+    /* We can't read the file */
+    status = "400 Bad Request";
+  }
   else {
+    /* We can read the file */
+    target = fopen(full_path, "r");
     /* We have a file, we need to read it. */
     fseek (target , 0 , SEEK_END);
     file_size = ftell (target);
     rewind (target);
     file_read = calloc(file_size, sizeof(char));
 
-    if (fread(file_read, file_size, file_size, target) != file_size) {
+    if (fread(file_read, file_size, file_size, target) == 0) {
       /* We can't read from the file for some reason. */
-      status = "400 Bad Request";
+      fprintf(stderr, "Reached end of file unexpectedly.\n");
+      exit(-1);
     }
     else {
       /* We successfully read from the file, respond the the request. */
       status = "200 OK";
     }
   }
-  
+
   /* Build the header. */
   /* In this Assignment we just need the HTTP and the file (if applicable) */
   int head_size = 9 + strlen(status) + 2;
