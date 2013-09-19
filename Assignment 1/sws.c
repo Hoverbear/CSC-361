@@ -9,6 +9,7 @@
 #include <pthread.h>      /* Threads! =D! */
 #include <termios.h>      /* Keypress testing. */
 #include <unistd.h>       /* Keypress testing. */
+#include <errno.h>
 
 #define IN_PACKETSIZE   1024
 #define PATHSIZE        256
@@ -92,12 +93,10 @@ void *request_worker(void *pointer) {
   /* See if we can read. */
   struct stat fileStat;
   if (stat(full_path,&fileStat) < 0) {
-    fprintf(stderr, "stat mode: %d\n", fileStat.st_mode);
     /* There is no file */
     status = "404 Not Found";
   }
-  else if (!fileStat.st_mode) {
-    fprintf(stderr, "stat mode: %d\n", fileStat.st_mode);
+  else if (!(fileStat.st_mode & S_IRUSR)) {
     /* We can't read the file */
     status = "400 Bad Request";
   }
