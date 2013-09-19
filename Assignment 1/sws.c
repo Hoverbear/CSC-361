@@ -9,8 +9,8 @@
 #include <termios.h>      /* Keypress testing. */
 #include <unistd.h>       /* Keypress testing. */
 
-#define PACKETSIZE 1024
-#define PATHSIZE    256
+#define IN_PACKETSIZE   1024
+#define PATHSIZE        256
 
 /* Request Struct
  * --------------
@@ -20,7 +20,7 @@
   int origin_socket;
   struct sockaddr_in address;
   int address_size;
-  char buffer[PACKETSIZE];
+  char buffer[PATHSIZE];
   char dir[PATHSIZE];
 };
 
@@ -59,12 +59,9 @@ void *quit_worker() {
 void *request_worker(void *pointer) {
   /* Setup */
   struct request *req = pointer;
-  int status;
+  char* status;
   char path[PATHSIZE]; /* The file that is requested. */
-
-  /* DEBUG */
-  fprintf(stderr, "DEBUG: IP    : '%s'\n", inet_ntoa(req->address.sin_addr));
-  fprintf(stderr, "DEBUG: Buffer: '%s'\n", req->buffer);
+  char* response;
 
   /* Find the start of the path */ 
   int path_start = 0;
@@ -82,27 +79,42 @@ void *request_worker(void *pointer) {
   strncpy(path, &req->buffer[path_start], path_end - path_start);
   path[strlen(path)+1] = '\0';
 
-  fprintf(stderr, "DEBUG: PATH(%d, %d): '%s'\n", path_start, path_end, path);
-
-  /* Get the file */
+  /* Get the file, dump it to file_read, set the status. */
   FILE *target = fopen(strncat(req->dir,path, 256), "r");
-  char* response;
+  char* file_read; /* The file contents requested. */
+  long file_size = 0;
   if (target == NULL) {
     /* 404 error */
-    status = 404; /* NOT FOUND */
+    status = "404 Not Found";
   }
   else {
     /* We have a file, we need to read it. */
-    response = calloc(PACKETSIZE, sizeof(char));
-    if (fgets(response, PACKETSIZE, target) == NULL) {
+    fseek (target , 0 , SEEK_END);
+    file_size = ftell (target);
+    rewind (target);
+    response = calloc(file_size, sizeof(char)); /* The UDP Packet. */
+    file_read = calloc(file_size, sizeof(char));
+
+    if (fread(file_read, file_size, file_size, target) != file_size) {
       /* We can't read from the file for some reason. */
-      status = 402; /* ??? */
+      status = "400 Bad Request";
     }
     else {
       /* We successfully read from the file, respond the the request. */
-      status = 200; /* OK */
+      status = "200 OK";
     }
   }
+  
+  /* Build the header. */
+  /* In this Assignment we just need the HTTP and the file (if applicable) */
+  strncat(response, "HTTP/1.1 ", 9);
+  strncat(response, status, 25);
+  strncat(response, "\n\n", 2); /* Emit two blank lines. */
+  if (file_read != NULL) {
+    strncat(response, file_read, file_size - strlen(response));
+  }
+
+  fprintf(stderr, "%d\n", file_size);
   if (sendto(req->origin_socket, response, strlen(response), 0, (struct sockaddr *)&req->address, req->address_size) == -1) {
     fprintf(stderr, "Failed to respond to client: %s\n", inet_ntoa(req->address.sin_addr));
   }
@@ -181,7 +193,7 @@ void *request_worker(void *pointer) {
     strncpy(request->dir, dir, PATHSIZE);
 
     /* Get! */
-    int bytes = recvfrom(request->origin_socket, &request->buffer, PACKETSIZE, 0, (struct sockaddr *)&request->address, (socklen_t*) &request->address_size);
+    int bytes = recvfrom(request->origin_socket, &request->buffer, IN_PACKETSIZE, 0, (struct sockaddr *)&request->address, (socklen_t*) &request->address_size);
     if (bytes == -1) {
       fprintf(stderr, "Error reading from socket.\n");
       exit(-1);
