@@ -92,7 +92,6 @@ void *request_worker(void *pointer) {
     fseek (target , 0 , SEEK_END);
     file_size = ftell (target);
     rewind (target);
-    response = calloc(file_size, sizeof(char)); /* The UDP Packet. */
     file_read = calloc(file_size, sizeof(char));
 
     if (fread(file_read, file_size, file_size, target) != file_size) {
@@ -107,16 +106,28 @@ void *request_worker(void *pointer) {
   
   /* Build the header. */
   /* In this Assignment we just need the HTTP and the file (if applicable) */
+  int head_size = 9 + strlen(status) + 2;
+  response = calloc(file_size + head_size, sizeof(char)); /* The UDP Packet. */
   strncat(response, "HTTP/1.1 ", 9);
   strncat(response, status, 25);
   strncat(response, "\n\n", 2); /* Emit two blank lines. */
   if (file_read != NULL) {
-    strncat(response, file_read, file_size - strlen(response));
+    strncat(&response[head_size], file_read, file_size);
   }
 
-  fprintf(stderr, "%d\n", file_size);
-  if (sendto(req->origin_socket, response, strlen(response), 0, (struct sockaddr *)&req->address, req->address_size) == -1) {
-    fprintf(stderr, "Failed to respond to client: %s\n", inet_ntoa(req->address.sin_addr));
+  int loc = 0;
+  while (loc < file_size + head_size) {
+    int limit;
+    if (strlen(&response[loc]) <= 1500) {
+      limit = strlen(&response[loc]);
+    }
+    else {
+      limit = 1500;
+    }
+    if (sendto(req->origin_socket, &response[loc], limit, 0, (struct sockaddr *)&req->address, req->address_size) == -1) {
+      fprintf(stderr, "Failed to respond to client: %s\n", inet_ntoa(req->address.sin_addr));
+    }
+    loc += limit;
   }
 
   /* Cleanup */
