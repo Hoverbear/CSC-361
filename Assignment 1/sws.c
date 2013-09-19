@@ -9,16 +9,19 @@
 #include <termios.h>      /* Keypress testing. */
 #include <unistd.h>       /* Keypress testing. */
 
+#define PACKETSIZE 1024
+#define PATHSIZE    256
+
 /* Request Struct
  * --------------
  * Used for threading requests.
  */
-struct request {
+ struct request {
   int origin_socket;
   struct sockaddr_in address;
   int address_size;
-  char buffer[256];
-  char dir[256];
+  char buffer[PACKETSIZE];
+  char dir[PATHSIZE];
 };
 
 /* Quit Worker
@@ -53,11 +56,11 @@ void *quit_worker() {
  * Params:
  *   - struct request pointer
  */ 
- void *request_worker(void *pointer) {
+void *request_worker(void *pointer) {
   /* Setup */
   struct request *req = pointer;
   int status;
-  char path[256]; /* The file that is requested. */
+  char path[PATHSIZE]; /* The file that is requested. */
 
   /* DEBUG */
   fprintf(stderr, "DEBUG: IP    : '%s'\n", inet_ntoa(req->address.sin_addr));
@@ -83,30 +86,31 @@ void *quit_worker() {
 
   /* Get the file */
   FILE *target = fopen(strncat(req->dir,path, 256), "r");
+  char* response;
   if (target == NULL) {
-    fprintf(stderr, "Couldn't open file.\n");
-    exit(-1);
+    /* 404 error */
+    status = 404; /* NOT FOUND */
   }
-  fprintf(stderr, "Prepping response.\n");
-  char* response = calloc(256, sizeof(char));
-  if (fgets(response, 256, target) != NULL) {
-    /* Repond to the request */
-    fprintf(stderr, "Sending response\n");
-    if (sendto(req->origin_socket,
-               response,
-               strlen(response),
-               0,
-               (struct sockaddr *)&req->address,
-               req->address_size) == -1)
-    {
-      fprintf(stderr, "Failed to respond to client: %s\n", inet_ntoa(req->address.sin_addr));
-    };
+  else {
+    /* We have a file, we need to read it. */
+    response = calloc(PACKETSIZE, sizeof(char));
+    if (fgets(response, PACKETSIZE, target) == NULL) {
+      /* We can't read from the file for some reason. */
+      status = 402; /* ??? */
+    }
+    else {
+      /* We successfully read from the file, respond the the request. */
+      status = 200; /* OK */
+    }
+  }
+  if (sendto(req->origin_socket, response, strlen(response), 0, (struct sockaddr *)&req->address, req->address_size) == -1) {
+    fprintf(stderr, "Failed to respond to client: %s\n", inet_ntoa(req->address.sin_addr));
   }
 
   /* Cleanup */
   free(pointer);
   return((void *) 0); 
- }
+}
 
 /*
  * A simple web server.
@@ -114,7 +118,7 @@ void *quit_worker() {
  *  - port: The port to use.
  *  - dir:  The directory to get files from.
  */
-int main(int argc, char *argv[]) {
+ int main(int argc, char *argv[]) {
   int socket_fd,         /* Socket File Descriptor. */
       port;              /* The Port we'll use. */
 
@@ -129,7 +133,7 @@ int main(int argc, char *argv[]) {
   */
 
   /* The directory we're serving from. */
-  char dir[256];
+  char dir[PATHSIZE];
 
   /* Do we have PORT and DIR args? */
   if (argc < 3) {
@@ -141,7 +145,7 @@ int main(int argc, char *argv[]) {
   /* Assign our Port */
   port = atoi(argv[1]);
   /* Assign our dir */
-  strncpy(dir, argv[2], 256);
+  strncpy(dir, argv[2], PATHSIZE);
 
   /* Create our socket. */
   socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -174,10 +178,10 @@ int main(int argc, char *argv[]) {
     struct request *request = calloc(1, sizeof *request);
     request->origin_socket = socket_fd;
     request->address_size = sizeof(request->address);
-    strncpy(request->dir, dir, 256);
+    strncpy(request->dir, dir, PATHSIZE);
 
     /* Get! */
-    int bytes = recvfrom(request->origin_socket, &request->buffer, 255, 0, (struct sockaddr *)&request->address, (socklen_t*) &request->address_size);
+    int bytes = recvfrom(request->origin_socket, &request->buffer, PACKETSIZE, 0, (struct sockaddr *)&request->address, (socklen_t*) &request->address_size);
     if (bytes == -1) {
       fprintf(stderr, "Error reading from socket.\n");
       exit(-1);
