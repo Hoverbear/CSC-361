@@ -67,13 +67,13 @@ void *request_worker(void *pointer) {
 
   /* Find the start of the path */ 
   int path_start = 0;
-  while (req->buffer[path_start] != '/') { /* GET / HTTP/1.0 */
+  while (req->buffer[path_start] != '/') { /* GET_/ HTTP/1.0 */
     path_start += 1;
   }
 
   /* Find the end of the path */
   int path_end = path_start + 1;
-  while (req->buffer[path_end] != ' ') { /* GET / HTTP/1.0 */
+  while (req->buffer[path_end] != ' ') { /* GET /_HTTP/1.0 */
     path_end += 1;
   }
 
@@ -128,7 +128,7 @@ void *request_worker(void *pointer) {
   /* In this Assignment we just need the HTTP and the file (if applicable) */
   int head_size = 9 + strlen(status) + 2;
   response = calloc(file_size + head_size, sizeof(char)); /* The UDP Packet. */
-  strncat(response, "HTTP/1.1 ", 9);
+  strncat(response, "HTTP/1.0 ", 9);
   strncat(response, status, 25);
   strncat(response, "\n\n", 2); /* Emit two blank lines. */
   if (file_read != NULL) {
@@ -149,6 +149,15 @@ void *request_worker(void *pointer) {
     }
     loc += limit;
   }
+
+  /* Finally, log the message. */
+  time_t the_time;
+  time (&the_time);
+  struct tm* timeinfo =  localtime(&the_time); /* Time struct, contains localtime information. */
+  char time_buffer[16];
+  strftime (time_buffer,15,"%b %d %H:%M:%S", timeinfo); /* Formats the time as needed. */
+  int req_length =  14 + (path_end - path_start) -1; /* Figure out how long our request was. */
+  fprintf(stdout, "%s %s:%d %.*s; %.*s; %s\n", time_buffer, inet_ntoa(req->address.sin_addr), req->address.sin_port, req_length, req->buffer, head_size -2, response, path);
 
   /* Cleanup */
   free(pointer);
