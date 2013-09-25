@@ -1,4 +1,4 @@
-# echo -n "GET / HTTP/1.0\r\n\r\n" | nc -u 127.0.0.1 8080
+# echo -e -n "GET / HTTP/1.0\r\n\r\n" | nc -u 127.0.0.1 8080
 all: clean sws
 
 run: clean sws
