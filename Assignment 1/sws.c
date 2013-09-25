@@ -83,7 +83,11 @@ void *request_worker(void *pointer) {
   }
   /* Copy the path */
   strncpy(path, &req->buffer[path_start], path_end - path_start);
-  path[strlen(path)+1] = '\0';
+  /* path[strlen(path)+1] = '\0';*/
+  /* Is it an index page? If so, make it look at the index. */
+  if (strncmp (path,"/",2) == 0) {
+      strncpy(path, "/index.html", 12);
+  }
 
   /* Get the file, dump it to file_read, set the status. */
   FILE* target;
