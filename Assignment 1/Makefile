@@ -8,4 +8,5 @@ sws:
 	gcc --ansi sws.c -o sws -pthread -Wall
 
 clean:
+	chmod 200 www/cantRead
 	rm -rf *.out sws
