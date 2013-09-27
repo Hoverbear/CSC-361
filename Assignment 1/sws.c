@@ -130,7 +130,7 @@ void *request_worker(void *pointer) {
   response = calloc(file_size + head_size, sizeof(char)); /* The UDP Packet. */
   strncat(response, "HTTP/1.0 ", 9);
   strncat(response, status, 25);
-  strncat(response, "\n\n", 2); /* Emit two blank lines. */
+  strncat(response, "\r\n\r\n", 4); /* Emit two blank lines. */
   if (file_read != NULL) {
     strncat(&response[head_size], file_read, file_size);
   }
@@ -138,11 +138,11 @@ void *request_worker(void *pointer) {
   int loc = 0;
   while (loc < file_size + head_size) {
     int limit;
-    if (strlen(&response[loc]) <= 1500) {
+    if (strlen(&response[loc]) <= 576) {
       limit = strlen(&response[loc]);
     }
     else {
-      limit = 1500;
+      limit = 576;
     }
     if (sendto(req->origin_socket, &response[loc], limit, 0, (struct sockaddr *)&req->address, req->address_size) == -1) {
       fprintf(stderr, "Failed to respond to client: %s\n", inet_ntoa(req->address.sin_addr));
