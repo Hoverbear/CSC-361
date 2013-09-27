@@ -83,9 +83,9 @@ void *request_worker(void *pointer) {
   }
   /* Copy the path */
   strncpy(path, &req->buffer[path_start], path_end - path_start);
-  /* path[strlen(path)+1] = '\0';*/
+
   /* Is it an index page? If so, make it look at the index. */
-  if (strncmp (path,"/",2) == 0) {
+  if (strncmp(path,"/",2) == 0) {
       strncpy(path, "/index.html", 12);
   }
 
@@ -100,7 +100,7 @@ void *request_worker(void *pointer) {
     /* There is no file */
     status = "404 Not Found";
   }
-  else if (!(fileStat.st_mode & S_IRUSR)) {
+  else if (!(fileStat.st_mode & S_IRUSR) || (strncmp(path, "/../", 4) == 0)) {
     /* We can't read the file */
     status = "400 Bad Request";
   }
@@ -189,7 +189,7 @@ void *request_worker(void *pointer) {
 
   /* Do we have PORT and DIR args? */
   if (argc < 3) {
-    fprintf(stderr, "Usage: sws PORT DIR\n");
+    fprintf(stderr, "Usage: sws <port> <dir>\n");
     fprintf(stderr, "   Ex: sws 8080 tmp\n");
     exit(-1);
   }
@@ -198,6 +198,8 @@ void *request_worker(void *pointer) {
   port = atoi(argv[1]);
   /* Assign our dir */
   strncpy(dir, argv[2], PATHSIZE);
+
+  fprintf(stdout, "sws is running on UDP port %d and serving %s\npress 'q' to quiet ...\n", port, dir);
 
   /* Create our socket. */
   socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
