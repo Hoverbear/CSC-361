@@ -67,9 +67,10 @@ void *request_worker(void *pointer) {
 
   /* Find the start of the path */ 
   int path_start = 0;
-  while (req->buffer[path_start] != '/') { /* GET_/ HTTP/1.0 */
+  while (req->buffer[path_start] != ' ') { /* GET_/ HTTP/1.0 */
     path_start += 1;
   }
+  path_start += 1;
 
   /* Find the end of the path */
   int path_end = path_start + 1;
@@ -96,7 +97,9 @@ void *request_worker(void *pointer) {
   char* full_path = strncat(req->dir,path, 256);
   /* See if we can read. */
   struct stat fileStat;
-  if (stat(full_path,&fileStat) < 0) {
+  if (strncmp(path, "/", 1) != 0) {
+    status = "400 Bad Request";
+  } else if (stat(full_path,&fileStat) < 0) {
     /* There is no file */
     status = "404 Not Found";
   }
@@ -126,7 +129,7 @@ void *request_worker(void *pointer) {
 
   /* Build the header. */
   /* In this Assignment we just need the HTTP and the file (if applicable) */
-  int head_size = 9 + strlen(status) + 2;
+  int head_size = 9 + strlen(status) + 4;
   response = calloc(file_size + head_size, sizeof(char)); /* The UDP Packet. */
   strncat(response, "HTTP/1.0 ", 9);
   strncat(response, status, 25);
@@ -160,7 +163,9 @@ void *request_worker(void *pointer) {
   fprintf(stdout, "%s %s:%d %.*s; %.*s; %s\n", time_buffer, inet_ntoa(req->address.sin_addr), req->address.sin_port, req_length, req->buffer, head_size -2, response, path);
 
   /* Cleanup */
-  free(pointer);
+  /*free(pointer);
+  free(file_read);
+  free(response);*/
   return((void *) 0); 
 }
 
