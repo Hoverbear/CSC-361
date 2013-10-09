@@ -221,6 +221,13 @@ void *request_worker(void *pointer) {
   server_address.sin_port = htons(port);        /* htons() converts to host byte order! */
   server_address.sin_addr.s_addr = INADDR_ANY;  /* IP of us */
 
+  int on = 1;
+  int rc = setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on));
+  if (rc < 0) {
+     fprintf(stderr, "setsockopt failed");
+     exit(-1);
+  }
+
   /* Bind to the socket. */
   if (bind(socket_fd, (struct sockaddr*) &server_address, sizeof(server_address)) < 0) {
     close(socket_fd);
