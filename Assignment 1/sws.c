@@ -204,7 +204,7 @@ void *request_worker(void *pointer) {
   /* Assign our dir */
   strncpy(dir, argv[2], PATHSIZE);
 
-  fprintf(stdout, "sws is running on UDP port %d and serving %s\npress 'q' to quiet ...\n", port, dir);
+  fprintf(stdout, "sws is running on UDP port %d and serving %s\npress 'q' to quit ...\n", port, dir);
 
   /* Create our socket. */
   socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
