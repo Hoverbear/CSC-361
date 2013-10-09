@@ -86,9 +86,11 @@ void *request_worker(void *pointer) {
   strncpy(path, &req->buffer[path_start], path_end - path_start);
 
   /* Is it an index page? If so, make it look at the index. */
-  if (strncmp(path,"/",2) == 0) {
-      strncpy(path, "/index.html", 12);
+  if (path[strlen(path)-1] == '/') {
+      strncat(path, "index.html", 12);
   }
+  
+  fprintf(stderr, "%d\n", (strncmp(path, "/../", 4) == 0));
 
   /* Get the file, dump it to file_read, set the status. */
   FILE* target;
@@ -97,13 +99,13 @@ void *request_worker(void *pointer) {
   char* full_path = strncat(req->dir,path, 256);
   /* See if we can read. */
   struct stat fileStat;
-  if (strncmp(path, "/", 1) != 0) {
+  if ((strncmp(path, "/", 1) != 0) || (strncmp(path, "/../", 4) == 0)) {
     status = "400 Bad Request";
   } else if (stat(full_path,&fileStat) < 0) {
     /* There is no file */
     status = "404 Not Found";
   }
-  else if (!(fileStat.st_mode & S_IRUSR) || (strncmp(path, "/../", 4) == 0)) {
+  else if (!(fileStat.st_mode & S_IRUSR)) {
     /* We can't read the file */
     status = "400 Bad Request";
   }
@@ -160,7 +162,7 @@ void *request_worker(void *pointer) {
   char time_buffer[16];
   strftime (time_buffer,15,"%b %d %H:%M:%S", timeinfo); /* Formats the time as needed. */
   int req_length =  14 + (path_end - path_start) -1; /* Figure out how long our request was. */
-  fprintf(stdout, "%s %s:%d %.*s; %.*s; %s\n", time_buffer, inet_ntoa(req->address.sin_addr), req->address.sin_port, req_length, req->buffer, head_size -2, response, path);
+  fprintf(stdout, "%s %s:%d %.*s; %.*s; %s\n", time_buffer, inet_ntoa(req->address.sin_addr), req->address.sin_port, req_length, req->buffer, head_size -4, response, path);
 
   /* Cleanup */
   /*free(pointer);

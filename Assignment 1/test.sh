@@ -53,7 +53,7 @@ echo -e -n "GET /../ HTTP/1.0\r\n\r\n" | nc -u -w1 127.0.0.1 8080 > tmp
 if diff tmp ./test-out/dot_dot > /dev/null; then
   printf "  \e[32m Pass! \e[0m \n"
 else
-  printf "  \e[32m Fail! \e[0m \n"
+  printf "  \e[31m Fail! \e[0m \n"
 fi
 
 echo "Testing: GET . HTTP/1.0"
