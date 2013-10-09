@@ -89,8 +89,6 @@ void *request_worker(void *pointer) {
   if (path[strlen(path)-1] == '/') {
       strncat(path, "index.html", 12);
   }
-  
-  fprintf(stderr, "%d\n", (strncmp(path, "/../", 4) == 0));
 
   /* Get the file, dump it to file_read, set the status. */
   FILE* target;
