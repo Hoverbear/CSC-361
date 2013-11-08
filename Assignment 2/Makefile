@@ -6,8 +6,8 @@ rdps:
 rdpr:
 	gcc rdps.c -o rdpr -Wall -pedantic -lreadline -std=gnu99
 
-run: rdps rdpr
-	echo "Hello"
+run: clean rdps rdpr
+	./rdpr 127.0.0.1 8080 127.0.0.1 8081 tar.gz
 
 clean:
 	rm -rf rdps rdpr
