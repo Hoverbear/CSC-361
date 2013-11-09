@@ -7,10 +7,10 @@ enum transaction_state {
   READY,
   WAITING,
   TIMEDOUT,
-  DONE
   // Reciever cares about:
   RECIEVED,
   ACKNOWLEDGED,
+  // Universal:
   DONE
 };
 ///////////////////////

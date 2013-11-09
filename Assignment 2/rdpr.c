@@ -51,8 +51,19 @@ FILE          sender_file;
 ///////////////////////
 // Functions         //
 ///////////////////////
+void parse_render_test() {
+  // Test packet parsing and rendering.
+  char* test_packet_string = "_magic_ CSc361\r\n_type_ SYN\r\n_seqno_ 1\r\n_ackno_ 10\r\n_length_ 100\r\n_size_ 1000\r\n\r\nSome Data.";
+  packet* test_packet_struct = parse_packet(test_packet_string);
+  char* test_packet_result = render_packet(test_packet_struct);
+  assert(strcmp(test_packet_string, test_packet_result) == 0); // Consistency test. If this fails, we're boned.
+  free(test_packet_result);
+  free_packet(test_packet_struct);
+  return;
+}
 // Main
 int main(int argc, char* argv[]) {
+  parse_render_test();
   // Check number of args.
   if ( (argc > 6) || (argc < 6) ) {
     fprintf(stderr, "Bad args.\n"); // TODO
@@ -70,13 +81,7 @@ int main(int argc, char* argv[]) {
   socket_address.sin_family     = AF_INET;
   socket_address.sin_port       = htons(sender_port);
   socket_address.sin_addr.s_addr  = inet_addr(sender_ip);
-  // Self test.
-  char* test_packet_string = "_magic_ CSc361\r\n_type_ SYN\r\n_seqno_ 1\r\n_ackno_ 10\r\n_length_ 100\r\n_size_ 1000\r\n\r\nSome Data.";
-  packet* test_packet_struct = parse_packet(test_packet_string);
-  char* test_packet_result = render_packet(test_packet_struct);
-  assert(strcmp(test_packet_string, test_packet_result) == 0); // Consistency test. If this fails, we're boned.
-  free(test_packet_result);
-  free_packet(test_packet_struct);
+
   // Setup Socket
   
   // Spawn workers on new connections, dispatch on existing.
