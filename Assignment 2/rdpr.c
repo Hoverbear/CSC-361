@@ -63,7 +63,7 @@ void parse_render_test() {
 int main(int argc, char* argv[]) {
   parse_render_test();
   // Check number of args.
-  assert( !((argc > 4) || (argc < 4)) )
+  assert( !((argc > 4) || (argc < 4)) );
   // Parse Args.
   reciever_ip       = argv[1];
   reciever_port     = atoi(argv[2]);
@@ -72,8 +72,8 @@ int main(int argc, char* argv[]) {
   socket_fd                     = socket(AF_INET, SOCK_DGRAM, 0);
   if (socket_fd < 0) { fprintf(stderr, "Couldn't create a socket."); exit(-1); }
   socket_address.sin_family     = AF_INET;
-  socket_address.sin_port       = htons(sender_port);
-  socket_address.sin_addr.s_addr  = inet_addr(sender_ip);
+  socket_address.sin_port       = htons(reciever_port);
+  socket_address.sin_addr.s_addr  = inet_addr(reciever_ip);
 
   // Setup Socket
   
