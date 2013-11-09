@@ -32,7 +32,7 @@ typedef struct packet {
   char*       type;     // Type of packet.
   int         ackno;    // Byte sequence number.
   int         seqno;    // Byte acknowledgement number.
-  int         payload;  // Payload Length in bytes.
+  int         length;  // Payload Length in bytes.
   int         size;     // Window Size in bytes.
                         // Empty line goes here.
   char*       data;     // The data of the payload.
@@ -59,10 +59,34 @@ FILE          sender_file;
 // Functions         //
 ///////////////////////
 // Render a packet based on the struct given.
-char* render_packet(packet source) {
+char* render_packet(packet* source) {
   char* result = calloc( 1024, sizeof(char) );
   if (result == NULL) { fprintf(stderr, "Couldn't render a packet.\n"); exit(-1); }
-  // TODO
+  int render_position = 0;
+  // Insert the _magic_.
+  strcat(&result[render_position], "_magic_ CSc361\r\n");
+  render_position = strlen(result);
+  // Insert the _type_.
+  sprintf(&result[render_position], "_type_ %s\r\n", source->type);
+  render_position = strlen(result);
+  // Insert the _seqno_.
+  sprintf(&result[render_position], "_seqno_ %d\r\n", source->seqno);
+  render_position = strlen(result);
+  // Insert the _ackno_.
+  sprintf(&result[render_position], "_ackno_ %d\r\n", source->ackno);
+  render_position = strlen(result);
+  // Insert the _length_.
+  sprintf(&result[render_position], "_length_ %d\r\n", source->length);
+  render_position = strlen(result);
+  // Insert the _size_.
+  sprintf(&result[render_position], "_size_ %d\r\n", source->size);
+  render_position = strlen(result);
+  // Insert the newlines.
+  sprintf(&result[render_position], "\r\n\r\n");
+  render_position = strlen(result);
+  // Insert the data.
+  sprintf(&result[render_position], "%s", source->data);
+  // Return.
   return result;
 }
 
@@ -87,6 +111,7 @@ packet* parse_packet(char* source) {
   while (source[end_of_seq] != '\r') { end_of_seq++; }
   char* temp_string = calloc( end_of_seq + 1, sizeof(char) );
   if (temp_string == NULL) { fprintf(stderr, "Couldn't parse a packet.\n"); exit(-1); }
+  strncpy(temp_string, source, end_of_seq);
   result->seqno = atoi(temp_string);
   free(temp_string);
   source = &source[end_of_seq + 2]; // Jump lines.
@@ -96,6 +121,7 @@ packet* parse_packet(char* source) {
   while (source[end_of_seq] != '\r') { end_of_seq++; }
   temp_string = calloc( end_of_seq + 1, sizeof(char) );
   if (temp_string == NULL) { fprintf(stderr, "Couldn't parse a packet.\n"); exit(-1); }
+  strncpy(temp_string, source, end_of_seq);
   result->ackno = atoi(temp_string);
   free(temp_string);
   source = &source[end_of_seq + 2]; // Jump lines.
@@ -105,7 +131,8 @@ packet* parse_packet(char* source) {
   while (source[end_of_seq] != '\r') { end_of_seq++; }
   temp_string = calloc( end_of_seq + 1, sizeof(char) );
   if (temp_string == NULL) { fprintf(stderr, "Couldn't parse a packet.\n"); exit(-1); }
-  result->ackno = atoi(temp_string);
+  strncpy(temp_string, source, end_of_seq);
+  result->length = atoi(temp_string);
   free(temp_string);
   source = &source[end_of_seq + 2]; // Jump lines.
   // Check _size_.
@@ -114,7 +141,8 @@ packet* parse_packet(char* source) {
   while (source[end_of_seq] != '\r') { end_of_seq++; }
   temp_string = calloc( end_of_seq + 1, sizeof(char) );
   if (temp_string == NULL) { fprintf(stderr, "Couldn't parse a packet.\n"); exit(-1); }
-  result->ackno = atoi(temp_string);
+  strncpy(temp_string, source, end_of_seq);
+  result->size = atoi(temp_string);
   free(temp_string);
   source = &source[end_of_seq + 2]; // Jump lines.
   // Verify there is an empty line.
@@ -150,9 +178,9 @@ int main(int argc, char* argv[]) {
   // Connect.
   char* test_packet_string = "_magic_ CSc361\r\n_type_ SYN\r\n_seqno_ 1\r\n_ackno_ 10\r\n_length_ 100\r\n_size_ 1000\r\n\r\nSome Data.";
   packet* test_packet_struct = parse_packet(test_packet_string);
-  char* test_packet_result = render_packet(*test_packet_struct);
+  char* test_packet_result = render_packet(test_packet_struct);
   // Spawn workers on new connections, dispatch on existing.
-  
+  fprintf(stderr, "%s", test_packet_result);
   // Return
   return 0;
 }
