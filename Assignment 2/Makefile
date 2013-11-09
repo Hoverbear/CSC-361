@@ -8,7 +8,7 @@ rdpr:
 
 run: clean rdps rdpr
 	./rdpr 127.0.0.1 8081 test_destination &
-	./rdps 127.0.0.1 8080 127.0.0.1 8081 test_file
+	./rdps 127.0.0.1 8080 127.0.0.1 8081 tests/beowulf
 	rm test_destination
 
 grind: clean rdps rdpr
