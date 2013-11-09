@@ -14,6 +14,13 @@ enum transaction_state {
   INITIALIZED,
   DONE
 };
+
+enum system_state {
+  SYN,
+  DATorACK,
+  RST,
+  FIN
+};
 ///////////////////////
 // Structures        //
 ///////////////////////

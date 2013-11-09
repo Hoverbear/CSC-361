@@ -1,10 +1,10 @@
 all: clean rdps rdpr
 
 rdps:
-	gcc rdps.c resources.c -o rdps -Wall -pedantic -lreadline -std=gnu99 -g -I.
+	gcc rdps.c resources.c -o rdps -Wall -pedantic -lreadline -lpthread -std=gnu99 -g -I.
 
 rdpr:
-	gcc rdpr.c resources.c -o rdpr -Wall -pedantic -lreadline -std=gnu99 -g -I.
+	gcc rdpr.c resources.c -o rdpr -Wall -pedantic -lreadline -lpthread -std=gnu99 -g -I.
 
 run: clean rdps rdpr
 	./rdpr 127.0.0.1 8081 test_destination &
