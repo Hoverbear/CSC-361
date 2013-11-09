@@ -111,9 +111,15 @@ packet* parse_packet(char* source) {
   // Return the data.
   return result;
 }
-
+// Frees a packet properly.
 void free_packet(packet* target) {
  free(target->type);
  free(target->data);
  free(target);
+}
+
+void free_transaction(transaction* target) {
+  free(target->string);
+  free_packet(target->packet);
+  free(target);
 }
