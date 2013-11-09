@@ -35,11 +35,9 @@
 // Global Variables. //
 ///////////////////////
 // Arguments.
-char*         sender_ip;
-int           sender_port;
 char*         reciever_ip;
 int           reciever_port;
-char*         sender_file_name;
+char*         reciever_file_name;
 
 // The socket FD
 int           socket_fd;
@@ -65,16 +63,11 @@ void parse_render_test() {
 int main(int argc, char* argv[]) {
   parse_render_test();
   // Check number of args.
-  if ( (argc > 6) || (argc < 6) ) {
-    fprintf(stderr, "Bad args.\n"); // TODO
-    exit(-1);
-  }
+  assert( !((argc > 4) || (argc < 4)) )
   // Parse Args.
-  sender_ip         = argv[1];
-  sender_port       = atoi(argv[2]);
-  reciever_ip       = argv[3];
-  reciever_port     = atoi(argv[4]);
-  sender_file_name  = argv[5];
+  reciever_ip       = argv[1];
+  reciever_port     = atoi(argv[2]);
+  reciever_file_name  = argv[3];
   // Set up Socket.
   socket_fd                     = socket(AF_INET, SOCK_DGRAM, 0);
   if (socket_fd < 0) { fprintf(stderr, "Couldn't create a socket."); exit(-1); }

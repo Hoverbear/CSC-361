@@ -65,10 +65,7 @@ void parse_render_test() {
 int main(int argc, char* argv[]) {
   parse_render_test();
   // Check number of args.
-  if ( (argc > 6) || (argc < 6) ) {
-    fprintf(stderr, "Bad args.\n"); // TODO
-    exit(-1);
-  }
+  assert( !((argc > 6) || (argc < 6)) );
   // Parse Args.
   sender_ip         = argv[1];
   sender_port       = atoi(argv[2]);
