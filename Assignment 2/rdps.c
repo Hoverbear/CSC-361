@@ -7,6 +7,7 @@
 #include <sys/types.h>    // Defines data types used in system calls.
 #include <string.h>       // String functions.
 #include <errno.h>
+#include <assert.h>       // Needed for asserts.
 
 #include <pthread.h>      // Threads! =D!
 
@@ -82,7 +83,7 @@ char* render_packet(packet* source) {
   sprintf(&result[render_position], "_size_ %d\r\n", source->size);
   render_position = strlen(result);
   // Insert the newlines.
-  sprintf(&result[render_position], "\r\n\r\n");
+  sprintf(&result[render_position], "\r\n");
   render_position = strlen(result);
   // Insert the data.
   sprintf(&result[render_position], "%s", source->data);
@@ -93,15 +94,15 @@ char* render_packet(packet* source) {
 // Parse out a packet into a struct given the data.
 packet* parse_packet(char* source) {
   packet* result = calloc( 1, sizeof(struct packet) );
-  if (result == NULL) { fprintf(stderr, "Couldn't parse a packet.\n"); exit(-1); }
+  assert(result != NULL);
   // Check for the _magic_, move along if satisfied.
   if (strncmp(source, "_magic_ CSc361\r\n", 16) != 0) { fprintf(stderr, "Bad packet magic... Exiting.\n"); exit(-1); }
   source = &source[16]; //16 to cut off the \r\n 
   // Check the _type_.
   if (strncmp(source, "_type_ ", 7) != 0) { fprintf(stderr, "Bad packet type... Exiting.\n"); exit(-1); }
   source = &source[7]; // Get the space too. 
-  result->type = calloc( 3, sizeof(char) );
-  if (result == NULL) { fprintf(stderr, "Couldn't set type of a packet.\n"); exit(-1); }
+  result->type = calloc( 4, sizeof(char) );
+  assert(result->type != NULL);
   strncpy(result->type, source, 3);
   source = &source[3+2]; // Jump to next line;
   // Check _seqno__.
@@ -110,7 +111,7 @@ packet* parse_packet(char* source) {
   int end_of_seq = 0;
   while (source[end_of_seq] != '\r') { end_of_seq++; }
   char* temp_string = calloc( end_of_seq + 1, sizeof(char) );
-  if (temp_string == NULL) { fprintf(stderr, "Couldn't parse a packet.\n"); exit(-1); }
+  assert(temp_string != NULL);
   strncpy(temp_string, source, end_of_seq);
   result->seqno = atoi(temp_string);
   free(temp_string);
@@ -120,7 +121,7 @@ packet* parse_packet(char* source) {
   source = &source[8];
   while (source[end_of_seq] != '\r') { end_of_seq++; }
   temp_string = calloc( end_of_seq + 1, sizeof(char) );
-  if (temp_string == NULL) { fprintf(stderr, "Couldn't parse a packet.\n"); exit(-1); }
+  assert(temp_string != NULL);
   strncpy(temp_string, source, end_of_seq);
   result->ackno = atoi(temp_string);
   free(temp_string);
@@ -130,7 +131,7 @@ packet* parse_packet(char* source) {
   source = &source[9];
   while (source[end_of_seq] != '\r') { end_of_seq++; }
   temp_string = calloc( end_of_seq + 1, sizeof(char) );
-  if (temp_string == NULL) { fprintf(stderr, "Couldn't parse a packet.\n"); exit(-1); }
+  assert(temp_string != NULL);
   strncpy(temp_string, source, end_of_seq);
   result->length = atoi(temp_string);
   free(temp_string);
@@ -140,7 +141,7 @@ packet* parse_packet(char* source) {
   source = &source[7];
   while (source[end_of_seq] != '\r') { end_of_seq++; }
   temp_string = calloc( end_of_seq + 1, sizeof(char) );
-  if (temp_string == NULL) { fprintf(stderr, "Couldn't parse a packet.\n"); exit(-1); }
+  assert(temp_string != NULL);
   strncpy(temp_string, source, end_of_seq);
   result->size = atoi(temp_string);
   free(temp_string);
@@ -150,10 +151,16 @@ packet* parse_packet(char* source) {
   // Check data.
   source = &source[2];
   result->data = calloc( strlen(source) + 1, sizeof(char) );
-  if (result->data == NULL) { fprintf(stderr, "Couldn't parse a packet.\n"); exit(-1); }
+  assert(result->data != NULL);
   strcpy(result->data, source);
   // Return the data.
   return result;
+}
+
+void free_packet(packet* target) {
+ free(target->type);
+ free(target->data);
+ free(target);
 }
 
 // Main
@@ -179,8 +186,11 @@ int main(int argc, char* argv[]) {
   char* test_packet_string = "_magic_ CSc361\r\n_type_ SYN\r\n_seqno_ 1\r\n_ackno_ 10\r\n_length_ 100\r\n_size_ 1000\r\n\r\nSome Data.";
   packet* test_packet_struct = parse_packet(test_packet_string);
   char* test_packet_result = render_packet(test_packet_struct);
+  assert(strcmp(test_packet_string, test_packet_result) == 0); // Consistency test. If this fails, we're boned.
+  free(test_packet_result);
+  free_packet(test_packet_struct);
   // Spawn workers on new connections, dispatch on existing.
-  fprintf(stderr, "%s", test_packet_result);
+  
   // Return
   return 0;
 }
