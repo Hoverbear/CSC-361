@@ -11,6 +11,7 @@ enum transaction_state {
   RECIEVED,
   ACKNOWLEDGED,
   // Universal:
+  INITIALIZED,
   DONE
 };
 ///////////////////////

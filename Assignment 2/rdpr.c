@@ -43,8 +43,10 @@ char*         reciever_file_name;
 int           socket_fd;
 // Our all important socket struct.
 struct sockaddr_in   socket_address;
-// The file we send.
+// The file we recieve.
 FILE          sender_file;
+// Is the file done?
+int           done;
 
 ///////////////////////
 // Functions         //
@@ -70,15 +72,30 @@ int main(int argc, char* argv[]) {
   reciever_file_name  = argv[3];
   // Set up Socket.
   socket_fd                     = socket(AF_INET, SOCK_DGRAM, 0);
+  socklen_t socket_address_size = sizeof(socket_address);
   if (socket_fd < 0) { fprintf(stderr, "Couldn't create a socket."); exit(-1); }
   socket_address.sin_family     = AF_INET;
   socket_address.sin_port       = htons(reciever_port);
   socket_address.sin_addr.s_addr  = inet_addr(reciever_ip);
+  // Socket Opts
+  int socket_ops = 1;
+  assert(setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&socket_ops, sizeof(socket_ops)) >= 0);
+  // Bind
+  assert(bind(socket_fd, (struct sockaddr*) &socket_address, sizeof(socket_address)) >= 0);
+  listen(socket_fd, 5); // Listen to 5 connections at a time.
+  // Start the listen loop.
+  done = 0;
+  while (!done) {
+    transaction* the_transaction = calloc(1, sizeof(struct transaction));
+    the_transaction->string = calloc(MAX_PAYLOAD, sizeof(char));
+    the_transaction->state = INITIALIZED;
+    int bytes = recvfrom(socket_fd, the_transaction->string, MAX_PAYLOAD, 0, (struct sockaddr*) &socket_address, &socket_address_size);
+    assert(bytes != -1); // This is an error.
+    
+    fprintf(stderr, "Got some data");
 
-  // Setup Socket
-  
-  // Spawn workers on new connections, dispatch on existing.
-  
+    done = 1;
+  };
   // Return
   return 0;
 }

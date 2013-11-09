@@ -47,6 +47,8 @@ int           socket_fd;
 struct sockaddr_in   socket_address;
 // The file we send.
 FILE          sender_file;
+// Is the file done?
+int           done;
 
 ///////////////////////
 // Functions         //
@@ -74,15 +76,30 @@ int main(int argc, char* argv[]) {
   sender_file_name  = argv[5];
   // Set up Socket.
   socket_fd                     = socket(AF_INET, SOCK_DGRAM, 0);
+  socklen_t socket_address_size = sizeof(socket_address);
   if (socket_fd < 0) { fprintf(stderr, "Couldn't create a socket."); exit(-1); }
   socket_address.sin_family     = AF_INET;
   socket_address.sin_port       = htons(sender_port);
   socket_address.sin_addr.s_addr  = inet_addr(sender_ip);
+  // Socket Opts
+  int socket_ops = 1;
+  assert(setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&socket_ops, sizeof(socket_ops)) >= 0);
+  // Bind
+  assert(bind(socket_fd, (struct sockaddr*) &socket_address, sizeof(socket_address)) >= 0);
+  // Start the listen loop.
+  done = 0;
+  while (!done) {
+    transaction* the_transaction = calloc(1, sizeof(struct transaction));
+    the_transaction->string = calloc(MAX_PAYLOAD, sizeof(char));
+    strcat(the_transaction->string, "Bear!");
+    the_transaction->state = INITIALIZED;
+    sendto(socket_fd, the_transaction->string, MAX_PAYLOAD, 0, (struct sockaddr*) &socket_address, socket_address_size);
+    
+    fprintf(stderr, "Got some data\n");
 
-  // Setup Socket
-  
-  // Spawn workers on new connections, dispatch on existing.
-  
+    done = 1;
+
+  };
   // Return
   return 0;
 }
