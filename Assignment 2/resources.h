@@ -1,4 +1,20 @@
 ///////////////////////
+// Andrew Hobden     //
+// V00788452         //
+///////////////////////
+#include <stdlib.h>       // Builtin functions
+#include <stdio.h>        // Standard IO.
+#include <sys/types.h>    // Defines data types used in system calls.
+#include <string.h>       // String functions.
+#include <errno.h>
+#include <assert.h>       // Needed for asserts.
+#include <unistd.h>       // Sleep
+#include <pthread.h>      // Threads! =D!
+
+#include <sys/socket.h>   // Defines const/structs we need for sockets.
+#include <netinet/in.h>   // Defines const/structs we need for internet domain addresses.
+#include <arpa/inet.h>
+///////////////////////
 // Enums             //
 ///////////////////////
 // Transaction States
@@ -16,6 +32,8 @@ enum transaction_state {
 };
 
 enum system_state {
+  INIT,
+  WAIT,
   SYN,
   DATorACK,
   RST,
