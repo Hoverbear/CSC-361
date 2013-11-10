@@ -32,12 +32,21 @@ enum transaction_state {
 };
 
 enum system_state {
-  INIT,
-  WAIT,
-  SYN,
-  DATorACK,
-  RST,
-  FIN
+  SYN,        // Sender needs to SYN.
+              //   Send SYN --> On ACK --> State = DAT.
+  WAIT,       // Reciver is waiting. Will need to build an address on SYN, then ACK.
+              //   On SYN --> Send ACK -> State = ACK.
+  ACK,        // Data is free flowing. DAT from Sender, ACK from Reciever.
+  DAT,        //   On RST --> Reset.
+              //   On last DAT --> Wait for last ACK.
+              //   On last ACK --> FIN.
+  RST,        // Reset the channel whenever.
+  FIN         // Finish up. FIN from server, FIN from Reciever. Then quit.
+};
+
+enum system_role {
+  SENDER,
+  RECIEVER
 };
 ///////////////////////
 // Structures        //

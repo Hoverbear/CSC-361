@@ -1,19 +1,16 @@
-all: clean rdps rdpr
+all: clean rdp
 
-rdps:
-	gcc rdps.c resources.c -o rdps -Wall -pedantic -lreadline -lpthread -std=gnu99 -g -I.
+rdp:
+	gcc rdp.c resources.c -o rdp -Wall -pedantic -lreadline -lpthread -std=gnu99 -g -I.
 
-rdpr:
-	gcc rdpr.c resources.c -o rdpr -Wall -pedantic -lreadline -lpthread -std=gnu99 -g -I.
-
-run: clean rdps rdpr
-	./rdpr 127.0.0.1 8081 test_destination &
-	./rdps 127.0.0.1 8080 127.0.0.1 8081 tests/beowulf
+run: clean rdp
+	./rdp 127.0.0.1 8081 test_destination &
+	./rdp 127.0.0.1 8080 127.0.0.1 8081 tests/beowulf
 	rm test_destination
 
-grind: clean rdps rdpr
-	valgrind --track-origins=yes ./rdpr 127.0.0.1 8081 test_destination &
-	valgrind --track-origins=yes ./rdps 127.0.0.1 8080 127.0.0.1 8081 test_file
+grind: clean rdp
+	valgrind --track-origins=yes ./rdp 127.0.0.1 8081 test_destination &
+	valgrind --track-origins=yes ./rdp 127.0.0.1 8080 127.0.0.1 8081 tests/beowulf 
 
 clean:
-	rm -rf rdps rdpr
+	rm -rf rdp test_destination
