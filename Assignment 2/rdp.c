@@ -19,6 +19,7 @@
 #include "resources.h"
 
 #define MAX_PAYLOAD 1024
+#define TIMEOUT     500
 // Potential header values, defined so we can change it later super easily.
 #define MAGIC "CSc361"
 
@@ -70,23 +71,33 @@ void parse_render_test() {
 void* reciever_thread() {
   fprintf(stderr, "Reciever thread spawned.\n");
   while (!all_done) {
-    char* message = calloc( MAX_PAYLOAD, sizeof(char) );
-    if (message == NULL) {
-      perror("Can't allocate memory.");
-    }
+    // Prep, read, and start the timer on the packet.i
+    // Always build a transaction, even though SYN, WAIT, RST, and FIN don't really handle them.
     int bytes;
+    transaction* this_transaction = create_transaction();
+    bytes = recvfrom(socket_fd, this_transaction->string, MAX_PAYLOAD, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This populates our peer.
+    if (bytes == -1) { // This is an error.
+      perror("Recieved a bad packet.");
+    };
+    set_timer(this_transaction);
+    time_t timer;
+    this_transaction->fire_time = time(&timer);
+    this_transaction->timeout = this_transaction->fire_time + TIMEOUT;
+    this_transaction->packet = parse_packet(this_transaction->string);
+    this_transaction->state = READY;
     switch (state) {
       case SYN:
         sleep(2);
         break;
       case WAIT:
-        fprintf(stderr, "Waiting to hear from someone\n   Port: %d\n   Address: %s\n", host_address.sin_port, inet_ntoa(host_address.sin_addr));
-        bytes = recvfrom(socket_fd, message, MAX_PAYLOAD, 0, (struct sockaddr*) &peer_address, &peer_address_size);
-        fprintf(stderr, "post send\n");
-        if (bytes == -1) { // This is an error.
-          perror("Recieved a bad packet.");
-        };
-        fprintf(stderr, "   Recieved a message.\n");
+        if (strcmp(this_transaction->packet->type, "SYN") == 0) {
+          // We need to ACK, then switch into data recieving mode. 
+          this_transaction->state = RECIEVED;
+          
+          state = ACK;
+        } else {
+          fprintf(stderr, "Recieved a (BAD) message from:\n    Post: %d\n    Address: %s\n   Message: %s\n", peer_address.sin_port, inet_ntoa(peer_address.sin_addr), this_transaction->packet->data);
+        }
         break;
       case ACK:
         break;
@@ -101,7 +112,6 @@ void* reciever_thread() {
         perror("Bad state");
     }
   }
-  
   // Recieve packets.
   return (void*) NULL;
 }
@@ -109,10 +119,13 @@ void* reciever_thread() {
 void* sender_thread() {
   fprintf(stderr, "Sender thread spawned\n");
   char* message = calloc( MAX_PAYLOAD, sizeof(char) );
+  if (message == NULL) {
+      perror("Can't allocate memory.");
+  }
   while (!all_done) {
     switch (state) {
       case SYN:
-        strcat(message, "Bears!\0");
+        strcpy(message, "Bears!");
         int bytes = sendto(socket_fd, message, MAX_PAYLOAD, 0, (struct sockaddr*) &peer_address, peer_address_size);
         if (bytes == -1) {
           perror("Wasn't able to transmit");
@@ -136,6 +149,7 @@ void* sender_thread() {
     }
     sleep(2);
   }
+  free(message);
   return (void*) NULL;
 }
 

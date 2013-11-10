@@ -8,7 +8,15 @@
 #include <string.h>       // String functions.
 #include <errno.h>
 #include <assert.h>       // Needed for asserts.
+#include <unistd.h>       // Sleep
+#include <pthread.h>      // Threads! =D!
 
+#include <sys/socket.h>   // Defines const/structs we need for sockets.
+#include <netinet/in.h>   // Defines const/structs we need for internet domain addresses.
+#include <arpa/inet.h>
+#include <time.h>
+#define MAX_PAYLOAD 1024
+#define TIMEOUT     500
 #include "resources.h"
 
 ///////////////////////
@@ -111,11 +119,32 @@ packet* parse_packet(char* source) {
   // Return the data.
   return result;
 }
+
+packet* create_packet(void) {
+  packet* result = calloc(1, sizeof(struct packet));
+  result->type = calloc(3, sizeof(char));
+  result->data = calloc(MAX_PAYLOAD, sizeof(char));
+  return result;
+};
 // Frees a packet properly.
 void free_packet(packet* target) {
  free(target->type);
  free(target->data);
  free(target);
+}
+
+transaction* create_transaction(void) {
+  transaction* result = calloc(1, sizeof(struct transaction));
+  result->packet = create_packet();
+  result->string = calloc(MAX_PAYLOAD, sizeof(char));
+  return result;
+}
+
+void set_timer(transaction* target) {
+  time_t timer;
+  target->fire_time = time(&timer);
+  target->timeout = target->fire_time + TIMEOUT;
+  return;
 }
 
 void free_transaction(transaction* target) {

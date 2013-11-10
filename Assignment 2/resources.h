@@ -14,20 +14,21 @@
 #include <sys/socket.h>   // Defines const/structs we need for sockets.
 #include <netinet/in.h>   // Defines const/structs we need for internet domain addresses.
 #include <arpa/inet.h>
+#include <time.h>
+#define MAX_PAYLOAD 1024
 ///////////////////////
 // Enums             //
 ///////////////////////
 // Transaction States
 enum transaction_state {
   // Sender cares about:
-  READY,
   WAITING,
   TIMEDOUT,
   // Reciever cares about:
   RECIEVED,
   ACKNOWLEDGED,
   // Universal:
-  INITIALIZED,
+  READY,
   DONE
 };
 
@@ -76,4 +77,6 @@ typedef struct transaction {
 char* render_packet(packet* source);
 packet* parse_packet(char* source);
 void free_packet(packet* target);
+transaction* create_transaction(void);
 void free_transaction(transaction* target);
+void set_timer(transaction* target);
