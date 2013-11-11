@@ -16,7 +16,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 #define MAX_PAYLOAD 1024
-#define TIMEOUT     500
+#define TIMEOUT     5
 #include "resources.h"
 
 ///////////////////////
@@ -151,8 +151,78 @@ void set_timer(transaction* target) {
   return;
 }
 
+void check_timer(transaction* target) {
+  time_t timer;
+  fprintf(stderr, "Checking timer %d %d\n", time(&timer), target->timeout);
+  if (time(&timer) > target->timeout) {
+    fprintf(stderr, "Timed out\n");
+    target->state = TIMEDOUT;
+    target->fire_time = time(&timer);
+    target->timeout = target->fire_time + TIMEOUT;
+  }
+  return;
+}
+
 void free_transaction(transaction* target) {
   free(target->string);
   free_packet(target->packet);
   free(target);
+  return;
+}
+
+transaction* queue_SYN(transaction* head, int window_size) {
+  transaction* last = head;
+  while (last != NULL && last->tail != NULL) {
+    last = last->tail;
+  }
+  // At the end, now add one more.
+  transaction* new = create_transaction();
+  new->string = calloc(1, sizeof(char));
+  set_timer(new);
+  // Need send a SYN
+  strcpy(new->packet->type, "SYN");
+  new->packet->seqno = rand();
+  new->packet->ackno = 0;
+  new->packet->length = 0;
+  new->packet->size = 0;
+  strcpy(new->packet->data,"");
+  new->string = render_packet(new->packet);
+
+  // Ready to go.
+  new->state = READY;
+  if (head != NULL) {
+    last->tail = new;
+    return head;
+  } else {
+    // Only on first index.
+    return new;
+  }
+}
+
+transaction* queue_ACK(transaction* head, int seqno, int ackno, int length, int size) {
+  transaction* last = head;
+  while (last != NULL && last->tail != NULL) {
+    last = last->tail;
+  }
+  // At the end, now add one more.
+  transaction* new = create_transaction();
+  new->string = calloc(1, sizeof(char));
+  set_timer(new);
+  strcpy(new->packet->type, "ACK");
+  new->packet->seqno = seqno;
+  new->packet->ackno = ackno;
+  new->packet->length = length;
+  new->packet->size = size;
+  strcpy(new->packet->data, "");
+  new->string = render_packet(new->packet);
+  
+  // Ready to go.
+  new->state = READY;
+  if (head != NULL) {
+    last->tail = new;
+    return head;
+  } else {
+    // Only on the first index.
+    return new;
+  }
 }

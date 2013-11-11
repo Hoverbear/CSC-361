@@ -19,7 +19,7 @@
 #include "resources.h"
 
 #define MAX_PAYLOAD 1024
-#define TIMEOUT     500
+#define TIMEOUT     5
 // Potential header values, defined so we can change it later super easily.
 #define MAGIC "CSc361"
 
@@ -54,6 +54,9 @@ enum system_state state;
 pthread_t reciever;  // Accepts packets from the reciever. (SYN, ACK, RST, FIN)
 pthread_t sender;    // Sends packets to the reciever.     (SYN, DAT, RST, FIN)
 int all_done;
+// Transactions
+transaction* head_transaction;
+
 ///////////////////////
 // Functions         //
 ///////////////////////
@@ -74,47 +77,26 @@ void* reciever_thread() {
     // Prep, read, and start the timer on the packet.i
     // Always build a transaction, even though SYN, WAIT, RST, and FIN don't really handle them.
     int bytes;
-    transaction* this_transaction = create_transaction();
-    this_transaction->string = calloc(MAX_PAYLOAD, sizeof(char));
-    bytes = recvfrom(socket_fd, this_transaction->string, MAX_PAYLOAD, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This populates our peer.
+    char* buffer = calloc(MAX_PAYLOAD, sizeof(char));
+    bytes = recvfrom(socket_fd, buffer, MAX_PAYLOAD, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This populates our peer.
     if (bytes == -1) { // This is an error.
       perror("Bad recieve");
     };
-    set_timer(this_transaction);
-    time_t timer;
-    this_transaction->fire_time = time(&timer);
-    this_transaction->timeout = this_transaction->fire_time + TIMEOUT;
-    this_transaction->packet = parse_packet(this_transaction->string);
-    this_transaction->state = READY;
-    fprintf(stderr, "Just recieved and parsed back a packet.\n");
-    
-    switch (state) {
-      case SYN:
-        sleep(1);
-        break;
-      case WAIT:
-        if (strcmp(this_transaction->packet->type, "SYN") == 0) {
-          // We need to ACK, then switch into data recieving mode. 
-          this_transaction->state = RECIEVED;
-          fprintf(stderr, "Basic Handshake");
-          state = ACK;
-        } else {
-          fprintf(stderr, "Recieved a (BAD) message from:\n    Post: %d\n    Address: %s\n   Message: %s\n",
-                  peer_address.sin_port, inet_ntoa(peer_address.sin_addr), this_transaction->packet->data);
-        }
-        break;
-      case ACK:
-        break;
-      case DAT:
-        break;
-      case RST:
-        break;
-      case FIN:
-        all_done = 1;
-        break;
-      default:
-        perror("Bad state");
+    packet* incoming = parse_packet(buffer);
+    fprintf(stderr, "Got a packet:\n   Type: %s\n   Port: %d\n   Address: %s\n", incoming->type, peer_address.sin_port, inet_ntoa(peer_address.sin_addr));
+    if (strcmp(incoming->type, "DAT") == 0) {
+      // TODO
+    } else if (strcmp(incoming->type, "ACK") == 0) {
+      // TODO
+    } else if (strcmp(incoming->type, "SYN") == 0) {
+      // Start packet.
+      head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, MAX_PAYLOAD, MAX_PAYLOAD);
+    } else if (strcmp(incoming->type, "FIN") == 0) {
+      // TODO
+    } else if (strcmp(incoming->type, "RST") == 0) {
+      // TODO
     }
+    free(buffer);
   }
   // Recieve packets.
   return (void*) NULL;
@@ -126,45 +108,38 @@ void* sender_thread() {
     // Prep, read, and start the timer on the packet.i
     // Always build a transaction, even though SYN, WAIT, RST, and FIN don't really handle them.
     int bytes;
-    transaction* this_transaction = create_transaction();
-    set_timer(this_transaction);
-    time_t timer;
-    this_transaction->fire_time = time(&timer);
-    this_transaction->timeout = this_transaction->fire_time + TIMEOUT;
-    this_transaction->packet = create_packet();
-    this_transaction->state = READY;
-    
-    
-    switch (state) {
-      case SYN:
-        // Need send a SYN
-        strcpy(this_transaction->packet->type, "SYN");
-        this_transaction->packet->seqno = rand();
-        this_transaction->packet->ackno = 0;
-        this_transaction->packet->length = 0;
-        this_transaction->packet->size = 0;
-        strcpy(this_transaction->packet->data,"");
-        this_transaction->string = render_packet(this_transaction->packet);
-        bytes = sendto(socket_fd, this_transaction->string, MAX_PAYLOAD, 0, (struct sockaddr*) &peer_address, peer_address_size);
-        if (bytes == -1) {
-          perror("Wasn't able to transmit");
-        }
-        fprintf(stderr, "I'm done sending:\n   Port: %d\n   Address: %s\n", peer_address.sin_port, inet_ntoa(peer_address.sin_addr));
-        break;
-      case WAIT:
-        sleep(2);
-        break;
-      case ACK:
-        break;
-      case DAT:
-        break;
-      case RST:
-        break;
-      case FIN:
-        all_done = 1;
-        break;
-      default:
-        perror("Bad state");
+    transaction* current_transaction = head_transaction;
+    transaction* last_transaction = NULL;
+    while (current_transaction != NULL) {
+      switch (current_transaction->state) {
+        case READY:
+        case TIMEDOUT:
+          // Needs to be (re)sent.
+          bytes = sendto(socket_fd, current_transaction->string, MAX_PAYLOAD, 0, (struct sockaddr*) &peer_address, peer_address_size);
+          if (bytes == -1) {
+            perror("Wasn't able to transmit");
+          }
+          current_transaction->state = WAITING;
+          fprintf(stderr, "I'm done sending:\n   Type: %s\n   Port: %d\n   Address: %s\n", current_transaction->packet->type, peer_address.sin_port, inet_ntoa(peer_address.sin_addr));
+          break;
+        case WAITING:
+          // Did it time out yet?
+          check_timer(current_transaction);
+          break;
+        case ACKNOWLEDGED:
+        case DONE:
+          if (last_transaction != NULL) {
+            // Can set unlink the transaction.
+            last_transaction->tail = current_transaction->tail;
+          }
+          free_transaction(current_transaction);
+          break;
+        default:
+          perror("Bad state");
+      }
+      // Need to set the last transaction and step forward.
+      last_transaction = current_transaction;
+      current_transaction = current_transaction->tail;
     }
     sleep(2);
   }
@@ -190,6 +165,8 @@ int main(int argc, char* argv[]) {
       if (file == NULL) { // Couldn't open the file.
         perror("Couldn't open file for reading.");
       }
+      // Queue up all of the transactions.
+      head_transaction = queue_SYN(head_transaction, 1);
       break;
     case 4:
       // It's a reciever!
@@ -203,6 +180,7 @@ int main(int argc, char* argv[]) {
       if (file == NULL) { // Couldn't open the file.
         perror("Couldn't open file for writing.");
       }
+      // Transactions will be built as they arrive.
       break;
     default:
       // It's a derp.
@@ -220,8 +198,8 @@ int main(int argc, char* argv[]) {
     peer_address.sin_family      = AF_INET;
     peer_address.sin_port        = peer_port;
     peer_address.sin_addr.s_addr = inet_addr(peer_ip);
-    peer_address_size            = sizeof(struct sockaddr_in);
   }
+  peer_address_size            = sizeof(struct sockaddr_in);
 
   // Socket Opts
   int socket_ops = 1;

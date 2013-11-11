@@ -22,14 +22,14 @@
 // Transaction States
 enum transaction_state {
   // Sender cares about:
-  WAITING,
-  TIMEDOUT,
+  READY,          // Packet ready to send.
+  TIMEDOUT,       // Packet timed out.
   // Reciever cares about:
-  RECIEVED,
-  ACKNOWLEDGED,
+  RECIEVED,       // Packet recieved, not acknowledged.
+  ACKNOWLEDGED,   // Packet acknowledged, transaction ok to disgard.
   // Universal:
-  READY,
-  DONE
+  WAITING,        // Packet waiting for an ACK or SYN.
+  DONE            // Packet done, transaction ok to disgard.
 };
 
 enum system_state {
@@ -70,6 +70,7 @@ typedef struct transaction {
   char* string;
   time_t fire_time;
   int timeout;
+  struct transaction* tail;
 } transaction;
 ///////////////////////
 // Functions         //
@@ -81,3 +82,6 @@ void free_packet(packet* target);
 transaction* create_transaction(void);
 void free_transaction(transaction* target);
 void set_timer(transaction* target);
+void check_timer(transaction* target);
+transaction* queue_SYN(transaction* head, int window_size);
+transaction* queue_ACK(transaction* head, int seqno, int ackno, int length, int size);
