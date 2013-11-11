@@ -79,6 +79,7 @@ packet* parse_packet(char* source) {
   result->seqno = atoi(temp_string);
   free(temp_string);
   source = &source[end_of_seq + 2]; // Jump lines.
+  end_of_seq = 0;
   // Check _ackno_.
   if (strncmp(source, "_ackno_ ", 8) != 0) { fprintf(stderr, "Bad packet ackno... Exiting.\n"); exit(-1); }
   source = &source[8];
@@ -89,6 +90,7 @@ packet* parse_packet(char* source) {
   result->ackno = atoi(temp_string);
   free(temp_string);
   source = &source[end_of_seq + 2]; // Jump lines.
+  end_of_seq = 0;
   // Check _length_.
   if (strncmp(source, "_length_ ", 9) != 0) { fprintf(stderr, "Bad packet length... Exiting.\n"); exit(-1); }
   source = &source[9];
@@ -99,6 +101,7 @@ packet* parse_packet(char* source) {
   result->length = atoi(temp_string);
   free(temp_string);
   source = &source[end_of_seq + 2]; // Jump lines.
+  end_of_seq = 0;
   // Check _size_.
   if (strncmp(source, "_size_ ", 7) != 0) { fprintf(stderr, "Bad packet size... Exiting.\n"); exit(-1); }
   source = &source[7];
@@ -109,6 +112,7 @@ packet* parse_packet(char* source) {
   result->size = atoi(temp_string);
   free(temp_string);
   source = &source[end_of_seq + 2]; // Jump lines.
+  end_of_seq = 0;
   // Verify there is an empty line.
   if (strncmp(source, "\r\n", 2) != 0) { fprintf(stderr, "Bad empty line... Exiting.\n"); exit(-1); }
   // Check data.
@@ -125,7 +129,7 @@ packet* create_packet(void) {
   result->type = calloc(3, sizeof(char));
   result->data = calloc(MAX_PAYLOAD, sizeof(char));
   return result;
-};
+}
 // Frees a packet properly.
 void free_packet(packet* target) {
  free(target->type);
@@ -136,7 +140,7 @@ void free_packet(packet* target) {
 transaction* create_transaction(void) {
   transaction* result = calloc(1, sizeof(struct transaction));
   result->packet = create_packet();
-  result->string = calloc(MAX_PAYLOAD, sizeof(char));
+  // result->string = calloc(MAX_PAYLOAD, sizeof(char));
   return result;
 }
 

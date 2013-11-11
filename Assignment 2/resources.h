@@ -75,6 +75,7 @@ typedef struct transaction {
 // Functions         //
 ///////////////////////
 char* render_packet(packet* source);
+packet* create_packet(void);
 packet* parse_packet(char* source);
 void free_packet(packet* target);
 transaction* create_transaction(void);
