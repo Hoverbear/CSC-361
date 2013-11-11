@@ -96,6 +96,7 @@ void* reciever_thread() {
     } else if (strcmp(incoming->type, "RST") == 0) {
       // TODO
     }
+    free_packet(incoming);
     free(buffer);
   }
   // Recieve packets.
