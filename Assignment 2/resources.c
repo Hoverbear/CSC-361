@@ -169,7 +169,7 @@ void free_transaction(transaction* target) {
   return;
 }
 
-transaction* queue_SYN(transaction* head, int window_size) {
+transaction* queue_SYN(transaction* head) {
   transaction* last = head;
   while (last != NULL && last->tail != NULL) {
     last = last->tail;
@@ -233,3 +233,59 @@ transaction* find_match(transaction* head_transaction, packet* input) {
   }
   return result; // Either NULL or the match.
 }
+
+transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno) {
+  // Seek to end of queue.
+  transaction* last = head;
+  transaction* first = head;
+  while (last != NULL && last->tail != NULL) {
+    last = last->tail;
+  }
+  // We'll add packets here.
+  int last_seqno = start_seqno + 1; // First byte of data payload.
+  int done = 0;
+  while (!done) {
+    fprintf(stderr, "Building a file packet");
+    transaction* new = create_transaction();
+    strcpy(new->packet->type, "DAT");
+    new->packet->seqno = last_seqno;
+    new->packet->ackno = 0; // No ACKs on DATs
+    new->packet->length = 0;
+    new->packet->size = 0;
+    new->string = render_packet(new->packet);
+    // Need to populate the data until MAX_PAYLOAD.
+    int payload_so_far = strlen(new->string);
+    int position = 0;
+    char insert_this;
+    while ((insert_this = fgetc(file)) != EOF && payload_so_far < MAX_PAYLOAD ) {
+      new->packet->data[position] = insert_this;
+      position++;
+      payload_so_far++;
+      // Attempt to detect Payload size changes.
+      if (position % 10 == 0) {
+        free(new->string);
+        new->string = render_packet(new->packet);
+        payload_so_far = strlen(new->string);
+      }
+    }
+    // At MAX_PAYLOAD.
+    free(new->string);
+    new->string = render_packet(new->packet);
+    new->state = READY;
+    if (head != NULL) {
+      last->tail = new;
+      last = new;
+    } else {
+      // This is the first! Wheeee
+      first = new;
+      last = new;
+    }
+    // Are we done?
+    if (insert_this == EOF) {
+      done = 1;
+    }
+  }
+  // Ready to go.
+  return first;
+}
+

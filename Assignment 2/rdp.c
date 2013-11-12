@@ -91,15 +91,23 @@ void* reciever_thread() {
     if (strcmp(incoming->type, "DAT") == 0) {
       // TODO
     } else if (strcmp(incoming->type, "ACK") == 0) {
+      fprintf(stderr, "This is an ACK");
       // ACK on a packet. Check which one.
       transaction* target_transaction = find_match(head_transaction, incoming);
       if (target_transaction != NULL) {
+        fprintf(stderr, "Packet type %s got ACKED", target_transaction->packet->type);
         target_transaction->state = ACKNOWLEDGED;
         // Update our highest ACK.
         if (incoming->ackno > highest_ack) {
           highest_ack = incoming->ackno;
           fprintf(stderr, "Setting highest_ack to %d\n", highest_ack);
         }
+        if (strcmp(target_transaction->packet->type, "SYN") == 0) {
+          fprintf(stderr, "Going to queue some files");
+          // It was a SYN Packet. Start loading file.
+          head_transaction = queue_file_packets(head_transaction, file, incoming->seqno);
+        }
+        target_transaction->state = DONE;
       } else {
         fprintf(stderr, "Got an ack with no match.\n");
         continue;
@@ -120,6 +128,7 @@ void* reciever_thread() {
   return (void*) NULL;
 }
 
+// Should not manipulate the queue other than state changes.
 void* sender_thread() {
   fprintf(stderr, "Sender thread spawned\n");
   while (!all_done) {
@@ -127,18 +136,20 @@ void* sender_thread() {
     // Always build a transaction, even though SYN, WAIT, RST, and FIN don't really handle them.
     int bytes;
     transaction* current_transaction = head_transaction;
-    transaction* last_transaction = NULL;
     while (current_transaction != NULL) {
       // Housekeeping.
       // Has this been ACK'd?
-      if (current_transaction->packet->ackno < highest_ack) {
-        current_transaction->state = ACKKNOWLEDGED;
+      if (current_transaction->packet->seqno <= highest_ack) {
+        fprintf(stderr, "Marked a packet as ACK'd");
+        current_transaction->state = ACKNOWLEDGED;
       }
-      
+      fprintf(stderr, "Transaction state is %d\n", (int) current_transaction->state);
       // --- // START Transaction Handling. // --- //
       switch (current_transaction->state) {
         case READY:
+          fprintf(stderr, "READY\n");
         case TIMEDOUT:
+          fprintf(stderr, "TIMEDOUT\n");
           // Needs to be (re)sent.
           bytes = sendto(socket_fd, current_transaction->string, MAX_PAYLOAD, 0, (struct sockaddr*) &peer_address, peer_address_size);
           if (bytes == -1) {
@@ -148,18 +159,20 @@ void* sender_thread() {
           fprintf(stderr, "I'm done sending:\n   Type: %s\n   Port: %d\n   Address: %s\n", current_transaction->packet->type, peer_address.sin_port, inet_ntoa(peer_address.sin_addr));
           break;
         case WAITING:
+          fprintf(stderr, "WAITING\n");
           // Did it time out yet?
           check_timer(current_transaction);
           break;
         case ACKNOWLEDGED:
+          fprintf(stderr, "ACKNOLEDGED\n");
         case DONE:
+          fprintf(stderr, "DONE\n");
           break;
         default:
           perror("Bad state");
       }
       // --- // END Transaction Handling. // --- //
       // Need to set the last transaction and step forward.
-      last_transaction = current_transaction;
       current_transaction = current_transaction->tail;
     }
     sleep(2);
@@ -187,7 +200,7 @@ int main(int argc, char* argv[]) {
         perror("Couldn't open file for reading.");
       }
       // Queue up all of the transactions.
-      head_transaction = queue_SYN(head_transaction, 1);
+      head_transaction = queue_SYN(head_transaction);
       break;
     case 4:
       // It's a reciever!

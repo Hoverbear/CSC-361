@@ -83,6 +83,8 @@ transaction* create_transaction(void);
 void free_transaction(transaction* target);
 void set_timer(transaction* target);
 void check_timer(transaction* target);
-transaction* queue_SYN(transaction* head, int window_size);
+transaction* queue_SYN(transaction* head);
 transaction* queue_ACK(transaction* head, int seqno, int ackno, int length, int size);
 transaction* find_match(transaction* head_transaction, packet* input);
+transaction* queue_file_packets(transaction* head_transaction, FILE* file, int start_seqno);
+
