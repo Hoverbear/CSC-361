@@ -14,7 +14,7 @@
 #include <sys/socket.h>   // Defines const/structs we need for sockets.
 #include <netinet/in.h>   // Defines const/structs we need for internet domain addresses.
 #include <arpa/inet.h>
-#include <time.h>
+#include <sys/time.h>
 #define MAX_PAYLOAD 1024
 #define TIMEOUT     5
 #include "resources.h"
@@ -287,5 +287,41 @@ transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno) 
   }
   // Ready to go.
   return first;
+}
+
+void log_packet(char event_type, struct sockaddr_in source, struct sockaddr_in destination, packet* the_packet) {
+  char log_buffer[1024];
+  char temp_log_buffer[1024];
+  // Time
+  struct timeval tv;
+  time_t nowtime;
+  struct tm *nowtm;
+
+  gettimeofday(&tv, NULL);
+  nowtime = tv.tv_sec;
+  nowtm = localtime(&nowtime);
+  strftime(temp_log_buffer, 1024, "%H:%M:%S", nowtm);
+  snprintf(log_buffer, 1024, "%s.%06d", temp_log_buffer, (int) tv.tv_usec);
+  // Event_type
+  strcat(log_buffer, " ");
+  log_buffer[strlen(log_buffer)+1] = event_type;
+  // Source
+  strcat(log_buffer, " ");
+  strcat(log_buffer, inet_ntoa(source.sin_addr));
+  strcat(log_buffer, ":");
+  sprintf(&log_buffer[strlen(log_buffer)], "%d", source.sin_port);
+  // Destination
+  strcat(log_buffer, " ");
+  strcat(log_buffer, inet_ntoa(destination.sin_addr));
+  strcat(log_buffer, ":");
+  sprintf(&log_buffer[strlen(log_buffer)], "%d", destination.sin_port);
+  // Packet Type
+  strcat(log_buffer, " ");
+  strcat(log_buffer, the_packet->type);
+  // Seq / ACK LEN / WIN
+  strcat(log_buffer, " ");
+  sprintf(&log_buffer[strlen(log_buffer)], "%d/%d %d/%d", the_packet->seqno, the_packet->ackno, the_packet->length, the_packet->size);
+  // Print
+  fprintf(stdout, "%s\n",  log_buffer);
 }
 

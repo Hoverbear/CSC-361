@@ -86,6 +86,22 @@ void* reciever_thread() {
       perror("Bad recieve");
     };
     packet* incoming = parse_packet(buffer);
+    // Do a stupid loop for assignment requirements.
+    int resent = 0;
+    transaction* this_transaction = head_transaction;
+    while (this_transaction != NULL) {
+      if (this_transaction->packet->seqno == incoming->seqno) {
+        resent = 1;
+        break;
+      }
+      this_transaction = this_transaction->tail;
+    }
+    if (resent) {
+      log_packet('R', host_address, peer_address, incoming);
+    } else {
+      log_packet('r', host_address, peer_address, incoming);
+    }
+    // End of stupid loop.
     // --- // START Packet Handling // --- //
     if (strcmp(incoming->type, "DAT") == 0) {
       head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, 0,0);
@@ -99,7 +115,6 @@ void* reciever_thread() {
         // Update our highest ACK.
         if (incoming->ackno > highest_ack) {
           highest_ack = incoming->ackno;
-          fprintf(stderr, "Setting highest_ack to %d\n", highest_ack);
         }
         if (strcmp(target_transaction->packet->type, "SYN") == 0) {
           // It was a SYN Packet. Start loading file.
@@ -113,10 +128,9 @@ void* reciever_thread() {
         target_transaction->state = DONE;
         // Did we just ACK the last transaction?
         if (target_transaction->tail == NULL && role == SENDER) {
+          // TODO Push a FIN
           fprintf(stderr, "Jobs done!\n");
           exit(0);
-        } else {
-          fprintf(stderr, "Not at the end!\n");
         }
       } else {
         fprintf(stderr, "Got an ack with no match.\n");
@@ -161,6 +175,13 @@ void* sender_thread() {
           if (bytes == -1) {
             perror("Wasn't able to transmit");
           }
+          // Log for assignment.
+          if (current_transaction->state == READY) {
+            log_packet('s', host_address, peer_address, current_transaction->packet);
+          } else {
+            log_packet('S', host_address, peer_address, current_transaction->packet);
+          }
+          // End of log for assignment.
           if (strcmp(current_transaction->packet->type, "SYN") == 0 || strcmp(current_transaction->packet->type, "DAT") == 0) {
             current_transaction->state = WAITING;
           } else {
