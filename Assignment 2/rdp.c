@@ -14,6 +14,8 @@
 #include <sys/socket.h>   // Defines const/structs we need for sockets.
 #include <netinet/in.h>   // Defines const/structs we need for internet domain addresses.
 #include <arpa/inet.h>
+#include <sys/time.h>
+#include <time.h>
 
 // Internal Includes
 #include "resources.h"
@@ -80,13 +82,13 @@ void* reciever_thread() {
   while (!all_done) {
     // Prep, read, and start the timer on the packet.
     int bytes;
-    char* buffer = calloc(MAX_PAYLOAD, sizeof(char));
-    bytes = recvfrom(socket_fd, buffer, MAX_PAYLOAD, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This populates our peer.
+    char* buffer = calloc(MAX_PAYLOAD+1, sizeof(char));
+    bytes = recvfrom(socket_fd, buffer, MAX_PAYLOAD+1, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This populates our peer.
     if (bytes == -1) { // This is an error.
       perror("Bad recieve");
     };
     packet* incoming = parse_packet(buffer);
-    // Do a stupid loop for assignment requirements.
+    // Do a loop for assignment requirements. Make sure this is fast!
     int resent = 0;
     transaction* this_transaction = head_transaction;
     while (this_transaction != NULL) {
@@ -101,12 +103,18 @@ void* reciever_thread() {
     } else {
       log_packet('r', host_address, peer_address, incoming);
     }
-    // End of stupid loop.
+    // End of loop.
     // --- // START Packet Handling // --- //
     if (strcmp(incoming->type, "DAT") == 0) {
       head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, 0,0);
       // Add files to the fileblock array.
     } else if (strcmp(incoming->type, "ACK") == 0) {
+      // Are we in FIN?
+      if (state == FIN) {
+        // We just acked the FIN, get out!
+        fprintf(stderr, "Jobs done on sender!\n");
+        pthread_exit(0);
+      }
       // ACK on a packet. Check which one.
       transaction* target_transaction = find_match(head_transaction, incoming);
       if (target_transaction != NULL) {
@@ -128,8 +136,10 @@ void* reciever_thread() {
         // Did we just ACK the last transaction?
         if (target_transaction->tail == NULL && role == SENDER) {
           // TODO Push a FIN
-          fprintf(stderr, "Jobs done!\n");
-          exit(0);
+          state = FIN;
+          head_transaction = queue_FIN(head_transaction, highest_ack);
+          fprintf(stderr, "Jobs done on sender!\n");
+          pthread_exit(0);
         }
       } else {
         fprintf(stderr, "Got an ack with no match.\n");
@@ -139,7 +149,8 @@ void* reciever_thread() {
       // Start packet.
       head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, 0, 0);
     } else if (strcmp(incoming->type, "FIN") == 0) {
-      // TODO
+      // Wait for an ACK, so switch state to FIN.
+      state = FIN;
     } else if (strcmp(incoming->type, "RST") == 0) {
       // TODO
     }
@@ -186,13 +197,16 @@ void* sender_thread() {
           } else {
             current_transaction->state = DONE;
           }
+          if (state == FIN && strcmp(current_transaction->packet->type, "FIN") == 0) {
+            pthread_exit(0);
+          }
           break;
         case WAITING:
           // Did it time out yet?
           check_timer(current_transaction);
           break;
         case ACKNOWLEDGED:
-        case DONE:
+        case DONE: 
           break;
         default:
           perror("Bad state");
@@ -201,7 +215,9 @@ void* sender_thread() {
       // Need to set the last transaction and step forward.
       current_transaction = current_transaction->tail;
     }
-    //sleep(2);
+    // Give us a break.
+    sched_yield();
+    usleep(1000*100);
   }
   return (void*) NULL;
 }

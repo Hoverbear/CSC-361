@@ -24,7 +24,7 @@
 ///////////////////////
 // Render a packet based on the struct given.
 char* render_packet(packet* source) {
-  char* result = calloc( 1024, sizeof(char) );
+  char* result = calloc( MAX_PAYLOAD * 2.5, sizeof(char) );
   if (result == NULL) { fprintf(stderr, "Couldn't render a packet.\n"); exit(-1); }
   int render_position = 0;
   // Insert the _magic_.
@@ -47,9 +47,8 @@ char* render_packet(packet* source) {
   render_position = strlen(result);
   // Insert the newlines.
   sprintf(&result[render_position], "\r\n");
-  render_position = strlen(result);
   // Insert the data.
-  sprintf(&result[render_position], "%s", source->data);
+  strcat(&result[render_position], source->data);
   // Return.
   return result;
 }
@@ -126,7 +125,7 @@ packet* parse_packet(char* source) {
 
 packet* create_packet(void) {
   packet* result = calloc(1, sizeof(struct packet));
-  result->type = calloc(3, sizeof(char));
+  result->type = calloc(4, sizeof(char));
   result->data = calloc(MAX_PAYLOAD, sizeof(char));
   return result;
 }
@@ -176,11 +175,38 @@ transaction* queue_SYN(transaction* head) {
   }
   // At the end, now add one more.
   transaction* new = create_transaction();
-  new->string = calloc(1, sizeof(char));
   set_timer(new);
   // Need send a SYN
   strcpy(new->packet->type, "SYN");
   new->packet->seqno = rand();
+  new->packet->ackno = 0;
+  new->packet->length = 0;
+  new->packet->size = 0;
+  strcpy(new->packet->data,"");
+  new->string = render_packet(new->packet);
+
+  // Ready to go.
+  new->state = READY;
+  if (head != NULL) {
+    last->tail = new;
+    return head;
+  } else {
+    // Only on first index.
+    return new;
+  }
+}
+
+transaction* queue_FIN(transaction* head, int seqno) {
+  transaction* last = head;
+  while (last != NULL && last->tail != NULL) {
+    last = last->tail;
+  }
+  // At the end, now add one more.
+  transaction* new = create_transaction();
+  set_timer(new);
+  // Need send a SYN
+  strcpy(new->packet->type, "FIN");
+  new->packet->seqno = seqno;
   new->packet->ackno = 0;
   new->packet->length = 0;
   new->packet->size = 0;
