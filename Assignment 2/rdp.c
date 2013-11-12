@@ -51,12 +51,14 @@ FILE*          file;
 enum system_role role;
 enum system_state state;
 // Threads
-pthread_t reciever;  // Accepts packets from the reciever. (SYN, ACK, RST, FIN)
+pthread_t reciever;  // Accepts packets from the sender. (SYN, ACK, RST, FIN)
 pthread_t sender;    // Sends packets to the reciever.     (SYN, DAT, RST, FIN)
 int all_done;
 // Transactions
 transaction* head_transaction;
-int highest_ack;
+// ACK'd so far.
+int highest_ack;      // On Reciever: All over this needs to still be ACK'd.
+                      // On Sender: The current ACK. All under this have been recieved.
 
 ///////////////////////
 // Functions         //
@@ -85,7 +87,7 @@ void* reciever_thread() {
     };
     packet* incoming = parse_packet(buffer);
     fprintf(stderr, "Got a packet:\n   Type: %s\n   Port: %d\n   Address: %s\n", incoming->type, peer_address.sin_port, inet_ntoa(peer_address.sin_addr));
-    // 
+    // --- // START Packet Handling // --- //
     if (strcmp(incoming->type, "DAT") == 0) {
       // TODO
     } else if (strcmp(incoming->type, "ACK") == 0) {
@@ -110,7 +112,7 @@ void* reciever_thread() {
     } else if (strcmp(incoming->type, "RST") == 0) {
       // TODO
     }
-    //
+    // --- // END Packet Handling // --- //
     free_packet(incoming);
     free(buffer);
   }
@@ -127,6 +129,13 @@ void* sender_thread() {
     transaction* current_transaction = head_transaction;
     transaction* last_transaction = NULL;
     while (current_transaction != NULL) {
+      // Housekeeping.
+      // Has this been ACK'd?
+      if (current_transaction->packet->ackno < highest_ack) {
+        current_transaction->state = ACKKNOWLEDGED;
+      }
+      
+      // --- // START Transaction Handling. // --- //
       switch (current_transaction->state) {
         case READY:
         case TIMEDOUT:
@@ -144,15 +153,11 @@ void* sender_thread() {
           break;
         case ACKNOWLEDGED:
         case DONE:
-          if (last_transaction != NULL) {
-            // Can set unlink the transaction.
-            last_transaction->tail = current_transaction->tail;
-          }
-          free_transaction(current_transaction);
           break;
         default:
           perror("Bad state");
       }
+      // --- // END Transaction Handling. // --- //
       // Need to set the last transaction and step forward.
       last_transaction = current_transaction;
       current_transaction = current_transaction->tail;
