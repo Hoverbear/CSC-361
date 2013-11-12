@@ -86,16 +86,15 @@ void* reciever_thread() {
       perror("Bad recieve");
     };
     packet* incoming = parse_packet(buffer);
-    fprintf(stderr, "Got a packet:\n   Type: %s\n   Port: %d\n   Address: %s\n", incoming->type, peer_address.sin_port, inet_ntoa(peer_address.sin_addr));
     // --- // START Packet Handling // --- //
     if (strcmp(incoming->type, "DAT") == 0) {
-      // TODO
+      head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, 0,0);
+      // Add files to the fileblock array.
     } else if (strcmp(incoming->type, "ACK") == 0) {
-      fprintf(stderr, "This is an ACK");
       // ACK on a packet. Check which one.
       transaction* target_transaction = find_match(head_transaction, incoming);
       if (target_transaction != NULL) {
-        fprintf(stderr, "Packet type %s got ACKED", target_transaction->packet->type);
+        fprintf(stderr, "Packet type %d got ACKED by %d\n", target_transaction->packet->seqno, incoming->seqno);
         target_transaction->state = ACKNOWLEDGED;
         // Update our highest ACK.
         if (incoming->ackno > highest_ack) {
@@ -103,18 +102,29 @@ void* reciever_thread() {
           fprintf(stderr, "Setting highest_ack to %d\n", highest_ack);
         }
         if (strcmp(target_transaction->packet->type, "SYN") == 0) {
-          fprintf(stderr, "Going to queue some files");
           // It was a SYN Packet. Start loading file.
+          if (role == SENDER) {
+            state = DAT;
+          } else {
+            state = ACK;
+          }
           head_transaction = queue_file_packets(head_transaction, file, incoming->seqno);
         }
         target_transaction->state = DONE;
+        // Did we just ACK the last transaction?
+        if (target_transaction->tail == NULL && role == SENDER) {
+          fprintf(stderr, "Jobs done!\n");
+          exit(0);
+        } else {
+          fprintf(stderr, "Not at the end!\n");
+        }
       } else {
         fprintf(stderr, "Got an ack with no match.\n");
         continue;
       }
     } else if (strcmp(incoming->type, "SYN") == 0) {
       // Start packet.
-      head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, MAX_PAYLOAD, MAX_PAYLOAD);
+      head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, 0, 0);
     } else if (strcmp(incoming->type, "FIN") == 0) {
       // TODO
     } else if (strcmp(incoming->type, "RST") == 0) {
@@ -139,34 +149,31 @@ void* sender_thread() {
     while (current_transaction != NULL) {
       // Housekeeping.
       // Has this been ACK'd?
-      if (current_transaction->packet->seqno <= highest_ack) {
-        fprintf(stderr, "Marked a packet as ACK'd");
+      if (current_transaction->packet->seqno <= highest_ack && current_transaction->state != ACKNOWLEDGED) {
         current_transaction->state = ACKNOWLEDGED;
       }
-      fprintf(stderr, "Transaction state is %d\n", (int) current_transaction->state);
       // --- // START Transaction Handling. // --- //
       switch (current_transaction->state) {
         case READY:
-          fprintf(stderr, "READY\n");
         case TIMEDOUT:
-          fprintf(stderr, "TIMEDOUT\n");
           // Needs to be (re)sent.
           bytes = sendto(socket_fd, current_transaction->string, MAX_PAYLOAD, 0, (struct sockaddr*) &peer_address, peer_address_size);
           if (bytes == -1) {
             perror("Wasn't able to transmit");
           }
-          current_transaction->state = WAITING;
-          fprintf(stderr, "I'm done sending:\n   Type: %s\n   Port: %d\n   Address: %s\n", current_transaction->packet->type, peer_address.sin_port, inet_ntoa(peer_address.sin_addr));
+          if (strcmp(current_transaction->packet->type, "SYN") == 0 || strcmp(current_transaction->packet->type, "DAT") == 0) {
+            current_transaction->state = WAITING;
+          } else {
+            current_transaction->state = DONE;
+          }
+          fprintf(stderr, "I'm done sending:   Type: %s   Port: %d   Address: %s\n", current_transaction->packet->type, peer_address.sin_port, inet_ntoa(peer_address.sin_addr));
           break;
         case WAITING:
-          fprintf(stderr, "WAITING\n");
           // Did it time out yet?
           check_timer(current_transaction);
           break;
         case ACKNOWLEDGED:
-          fprintf(stderr, "ACKNOLEDGED\n");
         case DONE:
-          fprintf(stderr, "DONE\n");
           break;
         default:
           perror("Bad state");

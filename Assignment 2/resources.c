@@ -245,7 +245,6 @@ transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno) 
   int last_seqno = start_seqno + 1; // First byte of data payload.
   int done = 0;
   while (!done) {
-    fprintf(stderr, "Building a file packet");
     transaction* new = create_transaction();
     strcpy(new->packet->type, "DAT");
     new->packet->seqno = last_seqno;
@@ -257,7 +256,7 @@ transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno) 
     int payload_so_far = strlen(new->string);
     int position = 0;
     char insert_this;
-    while ((insert_this = fgetc(file)) != EOF && payload_so_far < MAX_PAYLOAD ) {
+    while ((insert_this = fgetc(file)) != EOF && payload_so_far <= MAX_PAYLOAD ) {
       new->packet->data[position] = insert_this;
       position++;
       payload_so_far++;
@@ -284,6 +283,7 @@ transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno) 
     if (insert_this == EOF) {
       done = 1;
     }
+    last_seqno += payload_so_far + 1;
   }
   // Ready to go.
   return first;
