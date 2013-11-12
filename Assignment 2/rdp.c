@@ -110,7 +110,6 @@ void* reciever_thread() {
       // ACK on a packet. Check which one.
       transaction* target_transaction = find_match(head_transaction, incoming);
       if (target_transaction != NULL) {
-        fprintf(stderr, "Packet type %d got ACKED by %d\n", target_transaction->packet->seqno, incoming->seqno);
         target_transaction->state = ACKNOWLEDGED;
         // Update our highest ACK.
         if (incoming->ackno > highest_ack) {
@@ -187,7 +186,6 @@ void* sender_thread() {
           } else {
             current_transaction->state = DONE;
           }
-          fprintf(stderr, "I'm done sending:   Type: %s   Port: %d   Address: %s\n", current_transaction->packet->type, peer_address.sin_port, inet_ntoa(peer_address.sin_addr));
           break;
         case WAITING:
           // Did it time out yet?
@@ -203,7 +201,7 @@ void* sender_thread() {
       // Need to set the last transaction and step forward.
       current_transaction = current_transaction->tail;
     }
-    sleep(2);
+    //sleep(2);
   }
   return (void*) NULL;
 }

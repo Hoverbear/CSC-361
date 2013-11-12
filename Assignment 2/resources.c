@@ -270,6 +270,7 @@ transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno) 
     // At MAX_PAYLOAD.
     free(new->string);
     new->string = render_packet(new->packet);
+    set_timer(new);
     new->state = READY;
     if (head != NULL) {
       last->tail = new;
