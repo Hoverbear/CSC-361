@@ -85,3 +85,4 @@ void set_timer(transaction* target);
 void check_timer(transaction* target);
 transaction* queue_SYN(transaction* head, int window_size);
 transaction* queue_ACK(transaction* head, int seqno, int ackno, int length, int size);
+transaction* find_match(transaction* head_transaction, packet* input);

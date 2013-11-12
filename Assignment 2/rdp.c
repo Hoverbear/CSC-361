@@ -56,6 +56,7 @@ pthread_t sender;    // Sends packets to the reciever.     (SYN, DAT, RST, FIN)
 int all_done;
 // Transactions
 transaction* head_transaction;
+int highest_ack;
 
 ///////////////////////
 // Functions         //
@@ -73,9 +74,9 @@ void parse_render_test() {
 
 void* reciever_thread() {
   fprintf(stderr, "Reciever thread spawned.\n");
+  highest_ack = 0;
   while (!all_done) {
-    // Prep, read, and start the timer on the packet.i
-    // Always build a transaction, even though SYN, WAIT, RST, and FIN don't really handle them.
+    // Prep, read, and start the timer on the packet.
     int bytes;
     char* buffer = calloc(MAX_PAYLOAD, sizeof(char));
     bytes = recvfrom(socket_fd, buffer, MAX_PAYLOAD, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This populates our peer.
@@ -84,10 +85,23 @@ void* reciever_thread() {
     };
     packet* incoming = parse_packet(buffer);
     fprintf(stderr, "Got a packet:\n   Type: %s\n   Port: %d\n   Address: %s\n", incoming->type, peer_address.sin_port, inet_ntoa(peer_address.sin_addr));
+    // 
     if (strcmp(incoming->type, "DAT") == 0) {
       // TODO
     } else if (strcmp(incoming->type, "ACK") == 0) {
-      // TODO
+      // ACK on a packet. Check which one.
+      transaction* target_transaction = find_match(head_transaction, incoming);
+      if (target_transaction != NULL) {
+        target_transaction->state = ACKNOWLEDGED;
+        // Update our highest ACK.
+        if (incoming->ackno > highest_ack) {
+          highest_ack = incoming->ackno;
+          fprintf(stderr, "Setting highest_ack to %d\n", highest_ack);
+        }
+      } else {
+        fprintf(stderr, "Got an ack with no match.\n");
+        continue;
+      }
     } else if (strcmp(incoming->type, "SYN") == 0) {
       // Start packet.
       head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, MAX_PAYLOAD, MAX_PAYLOAD);
@@ -96,6 +110,7 @@ void* reciever_thread() {
     } else if (strcmp(incoming->type, "RST") == 0) {
       // TODO
     }
+    //
     free_packet(incoming);
     free(buffer);
   }

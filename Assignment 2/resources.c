@@ -153,9 +153,8 @@ void set_timer(transaction* target) {
 
 void check_timer(transaction* target) {
   time_t timer;
-  fprintf(stderr, "Checking timer %d %d\n", time(&timer), target->timeout);
   if (time(&timer) > target->timeout) {
-    fprintf(stderr, "Timed out\n");
+    fprintf(stderr, "Timed out, resending.\n");
     target->state = TIMEDOUT;
     target->fire_time = time(&timer);
     target->timeout = target->fire_time + TIMEOUT;
@@ -225,4 +224,12 @@ transaction* queue_ACK(transaction* head, int seqno, int ackno, int length, int 
     // Only on the first index.
     return new;
   }
+}
+
+transaction* find_match(transaction* head_transaction, packet* input) {
+  transaction* result = head_transaction;
+  while (result != NULL && result->packet->seqno != input->ackno) {
+    result = result->tail;
+  }
+  return result; // Either NULL or the match.
 }
