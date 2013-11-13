@@ -204,7 +204,7 @@ transaction* queue_FIN(transaction* head, int seqno) {
   // At the end, now add one more.
   transaction* new = create_transaction();
   set_timer(new);
-  // Need send a SYN
+  // Need send a FIN 
   strcpy(new->packet->type, "FIN");
   new->packet->seqno = seqno;
   new->packet->ackno = 0;
@@ -282,7 +282,7 @@ transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno) 
     int payload_so_far = strlen(new->string);
     int position = 0;
     char insert_this;
-    while ((insert_this = fgetc(file)) != EOF && payload_so_far <= MAX_PAYLOAD ) {
+    while ((insert_this = fgetc(file)) != EOF && payload_so_far < MAX_PAYLOAD ) {
       new->packet->data[position] = insert_this;
       position++;
       payload_so_far++;
@@ -294,6 +294,7 @@ transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno) 
       }
     }
     // At MAX_PAYLOAD.
+    new->packet->length = strlen(new->packet->data);
     free(new->string);
     new->string = render_packet(new->packet);
     set_timer(new);
@@ -330,8 +331,10 @@ void log_packet(char event_type, struct sockaddr_in source, struct sockaddr_in d
   strftime(temp_log_buffer, 1024, "%H:%M:%S", nowtm);
   snprintf(log_buffer, 1024, "%s.%06d", temp_log_buffer, (int) tv.tv_usec);
   // Event_type
+  int len = strlen(log_buffer);
   strcat(log_buffer, " ");
-  log_buffer[strlen(log_buffer)+1] = event_type;
+  log_buffer[len+1] = event_type;
+  log_buffer[len+2] = '\0';
   // Source
   strcat(log_buffer, " ");
   strcat(log_buffer, inet_ntoa(source.sin_addr));

@@ -109,12 +109,6 @@ void* reciever_thread() {
       head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, 0,0);
       // Add files to the fileblock array.
     } else if (strcmp(incoming->type, "ACK") == 0) {
-      // Are we in FIN?
-      if (state == FIN) {
-        // We just acked the FIN, get out!
-        fprintf(stderr, "Jobs done on sender!\n");
-        pthread_exit(0);
-      }
       // ACK on a packet. Check which one.
       transaction* target_transaction = find_match(head_transaction, incoming);
       if (target_transaction != NULL) {
@@ -135,10 +129,12 @@ void* reciever_thread() {
         target_transaction->state = DONE;
         // Did we just ACK the last transaction?
         if (target_transaction->tail == NULL && role == SENDER) {
-          // TODO Push a FIN
           state = FIN;
-          head_transaction = queue_FIN(head_transaction, highest_ack);
-          fprintf(stderr, "Jobs done on sender!\n");
+          head_transaction = queue_FIN(head_transaction, incoming->seqno +1);
+          pthread_exit(0);
+        }
+        if (state == FIN && role == RECIEVER) {
+          //write_file(head_transaction, file);
           pthread_exit(0);
         }
       } else {
@@ -149,8 +145,10 @@ void* reciever_thread() {
       // Start packet.
       head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, 0, 0);
     } else if (strcmp(incoming->type, "FIN") == 0) {
-      // Wait for an ACK, so switch state to FIN.
+      // Swap to FIN state, send an ACK.
       state = FIN;
+      head_transaction = queue_ACK(head_transaction, incoming->seqno+1, incoming->seqno, 0,0);
+      pthread_exit(0);
     } else if (strcmp(incoming->type, "RST") == 0) {
       // TODO
     }
@@ -186,7 +184,7 @@ void* sender_thread() {
             perror("Wasn't able to transmit");
           }
           // Log for assignment.
-          if (current_transaction->state == READY) {
+          if (current_transaction->state != TIMEDOUT) {
             log_packet('s', host_address, peer_address, current_transaction->packet);
           } else {
             log_packet('S', host_address, peer_address, current_transaction->packet);
@@ -197,7 +195,10 @@ void* sender_thread() {
           } else {
             current_transaction->state = DONE;
           }
-          if (state == FIN && strcmp(current_transaction->packet->type, "FIN") == 0) {
+          if (strcmp(current_transaction->packet->type, "FIN") == 0) {
+            state = FIN;
+          }
+          if (state == FIN && role == RECIEVER) {
             pthread_exit(0);
           }
           break;
@@ -207,6 +208,9 @@ void* sender_thread() {
           break;
         case ACKNOWLEDGED:
         case DONE: 
+          if (state == FIN && strcmp(current_transaction->packet->type, "FIN") == 0) {
+            pthread_exit(0);
+          }
           break;
         default:
           perror("Bad state");
