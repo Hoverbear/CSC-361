@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <time.h>
+#include <sys/stat.h>
 
 // Internal Includes
 #include "resources.h"
@@ -61,6 +62,8 @@ transaction* head_transaction;
 // ACK'd so far.
 int highest_ack;      // On Reciever: All over this needs to still be ACK'd.
                       // On Sender: The current ACK. All under this have been recieved.
+// Window Size
+int window_size;
 
 ///////////////////////
 // Functions         //
@@ -106,7 +109,8 @@ void* reciever_thread() {
     // End of loop.
     // --- // START Packet Handling // --- //
     if (strcmp(incoming->type, "DAT") == 0) {
-      head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, 0,0);
+      head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, 0, window_size);
+      window_size -= incoming->length + 1;
       // Add files to the fileblock array.
     } else if (strcmp(incoming->type, "ACK") == 0) {
       // ACK on a packet. Check which one.
@@ -124,7 +128,7 @@ void* reciever_thread() {
           } else {
             state = ACK;
           }
-          head_transaction = queue_file_packets(head_transaction, file, incoming->seqno);
+          head_transaction = queue_file_packets(head_transaction, file, incoming->seqno, incoming->size);
         }
         target_transaction->state = DONE;
         // Did we just ACK the last transaction?
@@ -134,7 +138,7 @@ void* reciever_thread() {
           pthread_exit(0);
         }
         if (state == FIN && role == RECIEVER) {
-          //write_file(head_transaction, file);
+          write_file(head_transaction, file);
           pthread_exit(0);
         }
       } else {
@@ -142,12 +146,13 @@ void* reciever_thread() {
         continue;
       }
     } else if (strcmp(incoming->type, "SYN") == 0) {
+      window_size = incoming->size;
       // Start packet.
-      head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, 0, 0);
+      head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, 0, window_size);
     } else if (strcmp(incoming->type, "FIN") == 0) {
       // Swap to FIN state, send an ACK.
       state = FIN;
-      head_transaction = queue_ACK(head_transaction, incoming->seqno+1, incoming->seqno, 0,0);
+      head_transaction = queue_ACK(head_transaction, incoming->seqno+1, incoming->seqno, 0, window_size);
       pthread_exit(0);
     } else if (strcmp(incoming->type, "RST") == 0) {
       // TODO
@@ -245,8 +250,11 @@ int main(int argc, char* argv[]) {
       if (file == NULL) { // Couldn't open the file.
         perror("Couldn't open file for reading.");
       }
+      fseek(file, 0, SEEK_END); // seek to end of file
+      window_size = ftell(file); // get current file pointer
+      fseek(file, 0, SEEK_SET); // seek back to beginning of file
       // Queue up all of the transactions.
-      head_transaction = queue_SYN(head_transaction);
+      head_transaction = queue_SYN(head_transaction, window_size);
       break;
     case 4:
       // It's a reciever!

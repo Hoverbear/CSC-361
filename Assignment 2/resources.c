@@ -168,7 +168,7 @@ void free_transaction(transaction* target) {
   return;
 }
 
-transaction* queue_SYN(transaction* head) {
+transaction* queue_SYN(transaction* head, int size) {
   transaction* last = head;
   while (last != NULL && last->tail != NULL) {
     last = last->tail;
@@ -181,7 +181,7 @@ transaction* queue_SYN(transaction* head) {
   new->packet->seqno = rand();
   new->packet->ackno = 0;
   new->packet->length = 0;
-  new->packet->size = 0;
+  new->packet->size = size;
   strcpy(new->packet->data,"");
   new->string = render_packet(new->packet);
 
@@ -260,7 +260,7 @@ transaction* find_match(transaction* head_transaction, packet* input) {
   return result; // Either NULL or the match.
 }
 
-transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno) {
+transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno, int window_size) {
   // Seek to end of queue.
   transaction* last = head;
   transaction* first = head;
@@ -276,7 +276,7 @@ transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno) 
     new->packet->seqno = last_seqno;
     new->packet->ackno = 0; // No ACKs on DATs
     new->packet->length = 0;
-    new->packet->size = 0;
+    new->packet->size = window_size;
     new->string = render_packet(new->packet);
     // Need to populate the data until MAX_PAYLOAD.
     int payload_so_far = strlen(new->string);
@@ -312,6 +312,7 @@ transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno) 
       done = 1;
     }
     last_seqno += payload_so_far + 1;
+    window_size -= new->packet->length+1;
   }
   // Ready to go.
   return first;
@@ -355,3 +356,4 @@ void log_packet(char event_type, struct sockaddr_in source, struct sockaddr_in d
   fprintf(stdout, "%s\n",  log_buffer);
 }
 
+void write_file(transaction* head, FILE* file) {}
