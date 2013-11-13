@@ -282,7 +282,7 @@ transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno, 
     int payload_so_far = strlen(new->string);
     int position = 0;
     char insert_this;
-    while ((insert_this = fgetc(file)) != EOF && payload_so_far < MAX_PAYLOAD ) {
+    while (payload_so_far < MAX_PAYLOAD && (insert_this = fgetc(file)) != EOF) {
       new->packet->data[position] = insert_this;
       position++;
       payload_so_far++;
@@ -290,7 +290,7 @@ transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno, 
       if (position % 10 == 0) {
         free(new->string);
         new->string = render_packet(new->packet);
-        payload_so_far = strlen(new->string);
+        payload_so_far = strlen(new->string) + 2;
       }
     }
     // At MAX_PAYLOAD.
@@ -311,7 +311,7 @@ transaction* queue_file_packets(transaction* head, FILE* file, int start_seqno, 
     if (insert_this == EOF) {
       done = 1;
     }
-    last_seqno += payload_so_far + 1;
+    last_seqno += new->packet->length;
     window_size -= new->packet->length+1;
   }
   // Ready to go.
@@ -356,4 +356,3 @@ void log_packet(char event_type, struct sockaddr_in source, struct sockaddr_in d
   fprintf(stdout, "%s\n",  log_buffer);
 }
 
-void write_file(transaction* head, FILE* file) {}

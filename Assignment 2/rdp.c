@@ -63,7 +63,9 @@ transaction* head_transaction;
 int highest_ack;      // On Reciever: All over this needs to still be ACK'd.
                       // On Sender: The current ACK. All under this have been recieved.
 // Window Size
+int initial_seqno;    // Need this for unwinding.
 int window_size;
+char* window;
 
 ///////////////////////
 // Functions         //
@@ -109,8 +111,9 @@ void* reciever_thread() {
     // End of loop.
     // --- // START Packet Handling // --- //
     if (strcmp(incoming->type, "DAT") == 0) {
-      head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, 0, window_size);
+      head_transaction = queue_ACK(head_transaction, incoming->seqno, incoming->seqno, 0, window_size);
       window_size -= incoming->length + 1;
+      strcat(&window[incoming->seqno - initial_seqno], incoming->data);
       // Add files to the fileblock array.
     } else if (strcmp(incoming->type, "ACK") == 0) {
       // ACK on a packet. Check which one.
@@ -138,7 +141,6 @@ void* reciever_thread() {
           pthread_exit(0);
         }
         if (state == FIN && role == RECIEVER) {
-          write_file(head_transaction, file);
           pthread_exit(0);
         }
       } else {
@@ -147,12 +149,15 @@ void* reciever_thread() {
       }
     } else if (strcmp(incoming->type, "SYN") == 0) {
       window_size = incoming->size;
+      initial_seqno = incoming->seqno +2; // For SYN -> ACK -> First DAT.
+      window = calloc(window_size +1, sizeof(char));
       // Start packet.
       head_transaction = queue_ACK(head_transaction, incoming->seqno + 1, incoming->seqno, 0, window_size);
     } else if (strcmp(incoming->type, "FIN") == 0) {
       // Swap to FIN state, send an ACK.
       state = FIN;
       head_transaction = queue_ACK(head_transaction, incoming->seqno+1, incoming->seqno, 0, window_size);
+      fprintf(file, "%s", window);
       pthread_exit(0);
     } else if (strcmp(incoming->type, "RST") == 0) {
       // TODO

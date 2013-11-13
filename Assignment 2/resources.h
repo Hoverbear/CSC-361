@@ -89,4 +89,3 @@ transaction* queue_ACK(transaction* head, int seqno, int ackno, int length, int 
 transaction* find_match(transaction* head_transaction, packet* input);
 transaction* queue_file_packets(transaction* head_transaction, FILE* file, int start_seqno, int window_size);
 void log_packet(char event_type, struct sockaddr_in source, struct sockaddr_in destination, packet* the_packet);
-void write_file(transaction* head, FILE* file);
