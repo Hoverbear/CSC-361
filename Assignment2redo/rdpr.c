@@ -28,8 +28,11 @@ char*         peer_ip;
 int           peer_port;
 char*         file_name;
 
+// The statistics for the session.
+statistics_t         statistics;
+
 // The socket FD
-int           socket_fd;
+int                  socket_fd;
 // Our all important socket struct.
 struct sockaddr_in   host_address;
 socklen_t            host_address_size;
@@ -37,7 +40,7 @@ socklen_t            host_address_size;
 struct sockaddr_in   peer_address;
 socklen_t            peer_address_size;
 // The file we send.
-FILE*          file;
+FILE*                file;
 // The overall system state.
 
 int main(int argc, char* argv[]) {

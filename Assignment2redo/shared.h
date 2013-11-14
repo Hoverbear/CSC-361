@@ -49,6 +49,20 @@ typedef struct packet_t {
   char*               data;           // The data of the payload.
 } packet_t;
 
+// Runtime statistics.
+typedef struct statistics_t {            // (S/R Label) (Description)
+  int    total_data;                     // (Sent/Recieved) Total of all bytes.
+  int    unique_data;                    // (Sent/Recieved) Total of only unique bytes.
+  int    total_packets;                  // (Sent/Recieved) Total number of data packets.
+  int    unique_packets;                 // (Sent/Recieved) Total of only unique packets.
+  int    SYN;                            // (Sent/Recieved) Number of SYN packets.
+  int    FIN;                            // (Sent/Recieved) Number of FIN packets.
+  int    RST;                            // (Sent/Recieved) Number of RST packets.
+  int    ACK;                            // (Recieved/Sent) Number of ACK packets.
+  int    RST_2;                          // (Recieved/Sent) Number of RST packets (inverse!).
+  time_t start_time;                     // The start time, use it to calculate the total time.
+} statistics_t;
+
 unsigned long hash(char *str);
 packet_t* parse_packet(char* source);
 char* render_packet(packet_t* source);
