@@ -6,3 +6,17 @@ Assignment 1/sws
 Assignment 2/rdpr
 
 Assignment 2/rdps
+
+*.out
+
+*.plist
+
+Assignment2redo/rdpr.dSYM/Contents/Resources/DWARF/rdpr
+
+Assignment2redo/rdps.dSYM/Contents/Resources/DWARF/rdps
+
+Assignment2redo/test_destination
+
+Assignment2redo/rdpr
+
+Assignment2redo/rdps
