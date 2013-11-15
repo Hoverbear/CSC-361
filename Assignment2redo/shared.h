@@ -84,23 +84,23 @@ packet_t* parse_packet(char* source);
 char* render_packet(packet_t* source);
 
 // Sets the initial sequence number.
-unsigned short send_SYN(sockaddr_in* peer_address, socklen_t* peer_address_size);
+unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size);
 // Finds (if applicable) a timed out packet from the queue.
 packet_t* get_timedout_packet(packet_t* timeout_queue);
 // Sends enough DAT packets to fill up the window give.
-packet_t* send_enough_DAT_to_fill_window(sockaddr_in* peer_address, socklen_t* peer_address_size,
-                       FILE* file, short position, short window_size, packet* timeout_queue);
+packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size,
+                       FILE* file, short position, short window_size, packet_t* timeout_queue);
 // Send an ACK for the given seqno.
-void send_ACK(sockaddr_in* peer_address, socklen_t peer_address_size, short seqno);
+void send_ACK(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, short seqno);
 // (Re)send a DAT packet.
-packet_t* send_DAT(sockaddr_in* peer_address, socklen_t* peer_address_size, packet_t* packet, packet_t* timeout_queue);
+packet_t* send_DAT(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet, packet_t* timeout_queue);
 // Remove packets up to the given packet's ackno.
-packet_t* remove_packet_from_timers_by_ackno(packet_t* packet);
+packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout_queue);
 
 //////////////////
 // Logging      //
 //////////////////
 // Logs the given packet.
-void log_packet(char event_type, sockaddr_in* source, sockaddr_in* destination, packet_t* the_packet);
+void log_packet(char event_type, struct sockaddr_in* source, struct sockaddr_in* destination, packet_t* the_packet);
 // Outputs the log file.
 void log_statistics(statistics_t statistics);

@@ -2,7 +2,7 @@
 // Sender       //
 //////////////////
 // TODO: Make socket non-blocking.
-unsigned short initial_seqno = send_SYN(&peer_address, &peer_address_size); // Sets the initial random sequence number.
+unsigned short initial_seqno = send_SYN(socket_fd, &peer_address, &peer_address_size); // Sets the initial random sequence number.
 unsigned short system_seqno = initial_seqno;
 char* buffer = calloc(MAX_PAYLOAD+1, sizeof(char));
 packet_t* timeout_queue; // Used for timeouts. Whenever you send DATs assign the return to this.
@@ -49,8 +49,8 @@ for (;;) {
           system_state = TRANSFER;
           // We're handshaked, start sending files.
           // Don't update the seqno until we get ACKs.
-          timeout_queue = send_enough_DAT_to_fill_window(&peer_address, 
-                            &peer_address_size, file, system_seqno - initial_seqno, 
+          timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &peer_address, 
+                            peer_address_size, file, system_seqno - initial_seqno, 
                             packet->window, timeout_queue);
           break;
         case DAT:
@@ -58,8 +58,8 @@ for (;;) {
           // Drop the packet from timers.
           timeout_queue = remove_packet_from_timers_by_ackno(packet);
           // Send some new data packets to fill that window.
-          timeout_queue = send_enough_DAT_to_fill_window(&peer_address, 
-                            &peer_address_size, file, system_seqno - initial_seqno, 
+          timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &peer_address, 
+                            peer_address_size, file, system_seqno - initial_seqno, 
                             packet->window, timeout_queue);
           break;
       }
@@ -67,7 +67,7 @@ for (;;) {
     case DAT:
       // This is a packet we need to resend. (Or the reciever sent us a DAT, in that case, wtf mate?)
       // We know there is room here since it timed out. :)
-      timeout_queue = send_DAT(&peer_address, &peer_address_size, packet, timeout_queue);
+      timeout_queue = send_DAT(socket_fd, &peer_address, peer_address_size, packet, timeout_queue);
       reset_timer(packet);
       break;
     case RST:
@@ -106,7 +106,7 @@ for (;;) {
       system_state = TRANSFER;
       intial_seqno = packet->seqno;
       system_seqno = initial_seqno;
-      send_ACK(&peer_address, &peer_address_size, packet->seqno);
+      send_ACK(socket_fd, &peer_address, peer_address_size, packet->seqno);
       break;
     case ACK:
       // Wait, why is the reciever getting an ACK?
@@ -126,7 +126,7 @@ for (;;) {
       // TODO: Rewind file pointer.
       // TODO: Empty the window.
       // TODO: Reset the connection, by sending an ACK.
-      send_ACK(&peer_address, &peer_address_size, packet->seqno);
+      send_ACK(socket_fd, &peer_address, &peer_address_size, packet->seqno);
       system_state = HANDSHAKE;
       break;
     case FIN:
