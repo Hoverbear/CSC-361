@@ -15,7 +15,9 @@
 #include <netinet/in.h>   // Defines const/structs we need for internet domain addresses.
 #include <arpa/inet.h>
 
-#define MAX_PACKET_LENGTH 1024
+#define MAX_PACKET_LENGTH 1024  // Based on spec.
+#define TIMEOUT 2;              // 2 seconds.
+#define MAX_PAYLOAD_LENGTH 900  // Conservative.
 
 // System states. Should be self descriptive.
 enum system_states {
@@ -89,13 +91,19 @@ unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen
 packet_t* get_timedout_packet(packet_t* timeout_queue);
 // Sends enough DAT packets to fill up the window give.
 packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size,
-                       FILE* file, short position, short window_size, packet_t* timeout_queue);
+                       FILE* file, unsigned short starting_seqno, short window_size, packet_t* timeout_queue);
 // Send an ACK for the given seqno.
 void send_ACK(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, short seqno);
 // (Re)send a DAT packet.
-packet_t* send_DAT(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet, packet_t* timeout_queue);
+void resend_DAT(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet, packet_t* timeout_queue);
 // Remove packets up to the given packet's ackno.
 packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout_queue);
+
+//////////////////
+// Files        //
+//////////////////
+// Write the file to the buffer.
+unsigned short write_packet_to_window(struct sockaddr_in* peer_address, socklen_t peer_address_size, unsigned short window, unsigned short initial_seqno); // Updates it only if the window flushed.
 
 //////////////////
 // Logging      //

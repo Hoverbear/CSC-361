@@ -45,21 +45,21 @@ for (;;) {
           log_statistics(statistics);
           exit(0);
           break;
-        case SYN:
+        case HANDSHAKE:
           system_state = TRANSFER;
           // We're handshaked, start sending files.
           // Don't update the seqno until we get ACKs.
           timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &peer_address, 
-                            peer_address_size, file, system_seqno - initial_seqno, 
+                            peer_address_size, file, &system_seqno, 
                             packet->window, timeout_queue);
           break;
-        case DAT:
+        case TRANSFER:
           system_seqno = packet->seqno; // Update the seqno now!
           // Drop the packet from timers.
           timeout_queue = remove_packet_from_timers_by_ackno(packet);
           // Send some new data packets to fill that window.
           timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &peer_address, 
-                            peer_address_size, file, system_seqno - initial_seqno, 
+                            peer_address_size, file, system_seqno, 
                             packet->window, timeout_queue);
           break;
       }
@@ -67,7 +67,7 @@ for (;;) {
     case DAT:
       // This is a packet we need to resend. (Or the reciever sent us a DAT, in that case, wtf mate?)
       // We know there is room here since it timed out. :)
-      timeout_queue = send_DAT(socket_fd, &peer_address, peer_address_size, packet, timeout_queue);
+      resend_DAT(socket_fd, &peer_address, peer_address_size, packet, timeout_queue);
       reset_timer(packet);
       break;
     case RST:
@@ -130,6 +130,7 @@ for (;;) {
       system_state = HANDSHAKE;
       break;
     case FIN:
+      system_state = EXIT;
       // Finished the file. We can send an ACK and close up shop.
       send_ACK(&peer_address, &peer_address_size, packet->seqno);
       log_statistics(statistics);
