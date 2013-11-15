@@ -47,6 +47,8 @@ typedef struct packet_t {
                                       // Checksum goes here.
                                       // Empty line goes here.
   char*               data;           // The data of the payload.
+  // Not in the actual packet.
+  time_t              timeout;        // The time the packet times out.
 } packet_t;
 
 // Runtime statistics.
@@ -63,6 +65,34 @@ typedef struct statistics_t {            // (S/R Label) (Description)
   time_t start_time;                     // The start time, use it to calculate the total time.
 } statistics_t;
 
+//////////////////
+// Packets      //
+//////////////////
+// Returns a hash for the packet.
 unsigned long hash(char *str);
+// Parses the string to a packet_t struct.
 packet_t* parse_packet(char* source);
+// Builds a string from the packet_t struct.
 char* render_packet(packet_t* source);
+
+// Sets the initial sequence number.
+unsigned short send_SYN(sockaddr_in* peer_address, socklen_t* peer_address_size);
+// Finds (if applicable) a timed out packet from the queue.
+packet_t* get_timedout_packet(packet_t* timeout_queue);
+// Sends enough DAT packets to fill up the window give.
+packet_t* send_enough_DAT_to_fill_window(sockaddr_in* peer_address, socklen_t* peer_address_size,
+                       FILE* file, short position, short window_size, packet* timeout_queue);
+// Send an ACK for the given seqno.
+void send_ACK(sockaddr_in* peer_address, socklen_t peer_address_size, short seqno);
+// (Re)send a DAT packet.
+packet_t* send_DAT(sockaddr_in* peer_address, socklen_t* peer_address_size, packet_t* packet, packet_t* timeout_queue);
+// Remove packets up to the given packet's ackno.
+packet_t* remove_packet_from_timers_by_ackno(packet_t* packet);
+
+//////////////////
+// Logging      //
+//////////////////
+// Logs the given packet.
+void log_packet(char event_type, sockaddr_in* source, sockaddr_in* destination, packet_t* the_packet);
+// Outputs the log file.
+void log_statistics(statistics_t statistics);

@@ -80,20 +80,54 @@ char* render_packet(packet_t* source) {
   return result;
 }
 
-// A self test
-// int main() {
-//   packet_t test_packet;
-//   test_packet.type = SYN;
-//   test_packet.seqno = 1;
-//   test_packet.ackno = 10;
-//   test_packet.payload = 101;
-//   test_packet.window = 1000;
-//   test_packet.data = calloc(MAX_PACKET_LENGTH, sizeof(char));
-//   strcpy(test_packet.data, "This is a string.");
-//   
-//   char* test_packet_as_string = render_packet(&test_packet);
-//   packet_t* test_packet_as_packet = parse_packet(test_packet_as_string);
-//   char* test_packet_as_string_again = render_packet(test_packet_as_packet);
-//   fprintf(stderr, "%d", strcmp(test_packet_as_string, test_packet_as_string_again));
-//   fprintf(stderr, "\n%s\n\n\n%s", test_packet_as_string, test_packet_as_string_again);
-// }
+// Sets the initial sequence number.
+unsigned short send_SYN(sockaddr_in* peer_address, socklen_t* peer_address_size) {
+  unsigned short seqno = (short) rand();
+  // TODO
+  return seqno;
+}
+
+// Finds (if applicable) a timed out packet from the queue.
+packet_t* get_timedout_packet(packet_t* timeout_queue) {
+  packet_t* head = timeout_queue;
+  // TODO
+  return head;
+}
+// Sends enough DAT packets to fill up the window give.
+packet_t* send_enough_DAT_to_fill_window(sockaddr_in* peer_address, socklen_t* peer_address_size,
+                       FILE* file, short position, short window_size, packet* timeout_queue) {
+  packet_t* head = timeout_queue;
+  // TODO
+  return head;
+}
+// Send an ACK for the given seqno.
+void send_ACK(sockaddr_in* peer_address, socklen_t peer_address_size, short seqno) {
+  // TODO
+  return;
+}
+// (Re)send a DAT packet.
+packet_t* send_DAT(sockaddr_in* peer_address, socklen_t* peer_address_size, packet_t* packet, packet_t* timeout_queue) {
+  packet_t* head = timeout_queue;
+  // TODO
+  return head;
+}
+// Remove packets up to the given packet's ackno.
+packet_t* remove_packet_from_timers_by_ackno(packet_t* packet) {
+  packet_t* head = timeout_queue;
+  // TODO
+  return head;
+}
+
+//////////////////
+// Logging      //
+//////////////////
+// Logs the given packet.
+void log_packet(char event_type, sockaddr_in* source, sockaddr_in* destination, packet_t* the_packet) {
+  // TODO
+  return;
+}
+// Outputs the log file.
+void log_statistics(statistics_t statistics) {
+  // TODO
+  return;
+}

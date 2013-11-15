@@ -2,8 +2,8 @@
 // Sender       //
 //////////////////
 // TODO: Make socket non-blocking.
-int initial_seqno = send_SYN(&peer_address, &peer_address_size); // Sets the initial random sequence number.
-int system_seqno = initial_seqno;
+unsigned short initial_seqno = send_SYN(&peer_address, &peer_address_size); // Sets the initial random sequence number.
+unsigned short system_seqno = initial_seqno;
 char* buffer = calloc(MAX_PAYLOAD+1, sizeof(char));
 packet_t* timeout_queue; // Used for timeouts. Whenever you send DATs assign the return to this.
 // Used for logging exclusively.
@@ -18,7 +18,7 @@ for (;;) {
     if (bytes == -1) {
       // Didn't read anything.
       // Find a packet that has timed out.
-      packet = get_timedout_packet(); // Returns NULL if no packet has timeout.
+      packet = get_timedout_packet(timeout_queue); // Returns NULL if no packet has timeout.
       if (packet != NULL) { log_type = 'S'; }
     } else {
       // Got a packet, need to parse it.
@@ -88,9 +88,9 @@ for (;;) {
 //////////////////
 // Reciever     //
 //////////////////
-int initial_seqno;
-int system_seqno;
-int temp_seqno_compare; // Used for handling the sliding window.
+unsigned short initial_seqno;
+unsigned short system_seqno;
+unsigned short temp_seqno_compare; // Used for handling the sliding window.
 char* window[WINDOW_SIZE_IN_PACKETS];
 for (;;) {
   // First we need something to work on!
