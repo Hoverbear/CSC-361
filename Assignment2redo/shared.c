@@ -83,7 +83,22 @@ char* render_packet(packet_t* source) {
 // Sets the initial sequence number.
 unsigned short send_SYN(sockaddr_in* peer_address, socklen_t* peer_address_size) {
   unsigned short seqno = (short) rand();
-  // TODO
+  // Build a SYN packet.
+  packet_t syn_packet;
+  syn_packet.type     = SYN;
+  syn_packet.seqno    = (unsigned short) rand();
+  syn_packet.ackno    = 0;
+  syn_packet.payload  = 0;
+  syn_packet.window   = 0;
+  syn_packet.data     = calloc(1, sizeof(char));
+  strcpy(syn_packet.data, "");
+  char* syn_string    = render_packet(&syn_packet);
+  // Send it.
+  sendto(socket_fd, syn_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) &peer_address, peer_address_size);
+  // Free the stuff.
+  free(syn_packet.data);
+  free(syn_string);
+  // Return the initial seqno.
   return seqno;
 }
 
@@ -94,15 +109,29 @@ packet_t* get_timedout_packet(packet_t* timeout_queue) {
   return head;
 }
 // Sends enough DAT packets to fill up the window give.
-packet_t* send_enough_DAT_to_fill_window(sockaddr_in* peer_address, socklen_t* peer_address_size,
-                       FILE* file, short position, short window_size, packet* timeout_queue) {
+packet_t* send_enough_DAT_to_fill_window(sockaddr_in* peer_address, socklen_t* peer_address_size, FILE* file, short position, short window_size, packet* timeout_queue) {
   packet_t* head = timeout_queue;
   // TODO
   return head;
 }
 // Send an ACK for the given seqno.
 void send_ACK(sockaddr_in* peer_address, socklen_t peer_address_size, short seqno) {
-  // TODO
+  // Build an ACK packet.
+  packet_t ack_packet;
+  ack_packet.type     = ACK;
+  ack_packet.seqno    = 0;
+  ack_packet.ackno    = seqno;
+  ack_packet.payload  = 0;
+  ack_packet.window   = 0;
+  ack_packet.data     = calloc(1, sizeof(char));
+  strcpy(ack_packet.data, "");
+  char* ack_string    = render_packet(&ack_packet);
+  // Send it.
+  sendto(socket_fd, ack_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) &peer_address, peer_address_size);
+  // Free the stuff.
+  free(ack_packet.data);
+  free(ack_string);
+  // Return.
   return;
 }
 // (Re)send a DAT packet.
@@ -123,7 +152,21 @@ packet_t* remove_packet_from_timers_by_ackno(packet_t* packet) {
 //////////////////
 // Logs the given packet.
 void log_packet(char event_type, sockaddr_in* source, sockaddr_in* destination, packet_t* the_packet) {
-  // TODO
+  // Build a time string.
+  char time_string[100];
+  struct timeval tv;
+  time_t nowtime;
+  struct tm *nowtm;
+  gettimeofday(&tv, NULL);
+  nowtime = tv.tv_sec;
+  nowtm = localtime(&nowtime);
+  strftime(time_string, 100, "%H:%M:%S", nowtm);
+  // Format the log.
+  fprintf(stdout, 1024, "%s.%06d %c %s:%d %s:%d %s %d/%d %d/%d", time_string, (int) tv.tv_usec,
+          event_type, inet_ntoa(source.sin_addr), source.sin_port, inet_ntoa(destination.sin_addr),
+          destination.sin_port, packet_type_array[the_packet->type], the_packet->seqno,
+          the_packet->ackno, the_packet->payload, the_packet->window);
+  // Return.
   return;
 }
 // Outputs the log file.
