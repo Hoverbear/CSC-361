@@ -59,6 +59,7 @@ typedef struct packet_t {
   char*               data;           // The data of the payload.
   // Not in the actual packet.
   time_t              timeout;        // The time the packet times out.
+  struct packet_t*    next;           // The rest of the queue, if it's being handled.
 } packet_t;
 
 // Runtime statistics.
@@ -95,7 +96,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer
 // Send an ACK for the given seqno.
 void send_ACK(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, short seqno);
 // (Re)send a DAT packet.
-void resend_DAT(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet, packet_t* timeout_queue);
+void resend_DAT(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet);
 // Remove packets up to the given packet's ackno.
 packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout_queue);
 

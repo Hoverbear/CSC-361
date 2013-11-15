@@ -110,7 +110,7 @@ packet_t* get_timedout_packet(packet_t* timeout_queue) {
   return head;
 }
 // Sends enough DAT packets to fill up the window give.
-packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, FILE* file, unsigned short* seqno, short window_size, packet_t* timeout_queue) {
+packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, FILE* file, unsigned short starting_seqno, short window_size, packet_t* timeout_queue) {
   packet_t* head = timeout_queue;
   // Calculate the number of packets to send given the window size.
   int packets_to_send = window_size / MAX_PAYLOAD_LENGTH;
@@ -118,6 +118,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer
   packet_t packet;
   packet.data = calloc(MAX_PAYLOAD_LENGTH, sizeof(char));
   char* packet_string;
+  unsigned short current_seqno = starting_seqno;
   while (sent_packets < packets_to_send) {
     // TODO: Verify this works!
     // Read in data from file.
@@ -125,7 +126,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer
       // If it's NULL, it's time to send a FIN packet and break out.
       // Build.
       packet.type     = FIN;
-      packet.seqno    = *seqno; // TODO: Might not need this (Could be 0)
+      packet.seqno    = current_seqno; // TODO: Might not need this (Could be 0)
       packet.ackno    = 0;
       packet.payload  = 0;
       packet.window   = 0;
@@ -137,8 +138,8 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer
     } else {
       // Build.
       packet.type     = DAT;
-      *seqno += strlen(packet.data);
-      packet.seqno    = *seqno; // TODO: Might need +1
+      current_seqno += strlen(packet.data);
+      packet.seqno    = current_seqno; // TODO: Might need +1
       packet.ackno    = 0;
       packet.payload  = 0;
       packet.window   = 0;
@@ -177,8 +178,7 @@ void send_ACK(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_ad
   return;
 }
 // (Re)send a DAT packet.
-void resend_DAT(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet, packet_t* timeout_queue) {
-  packet_t* head = timeout_queue;
+void resend_DAT(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet) {
   // Timer
   time_t timer;
   packet->timeout = time(&timer) + TIMEOUT;
@@ -190,7 +190,21 @@ void resend_DAT(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_
 // Remove packets up to the given packet's ackno.
 packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout_queue) {
   packet_t* head = timeout_queue;
-  // TODO
+  packet_t* current = head;
+  // Try to find the packet this corresponds to. Actually, we want the one before it. (We need to unlink it)
+  while (current->next != NULL) {
+    if (current->next->seqno < packet->ackno) {
+      // Remove it from the queue.
+      packet_t* target = current->next;
+      current->next = target->next;
+      free(target->data);
+      free(target);
+    } else {
+      // Stop, this is obviously too far along in the queue.
+      break;
+    }
+    current = current->next;
+  }
   return head;
 }
 
