@@ -11,7 +11,7 @@ char log_type; // S, s, R, or r.
 for (;;) {
   // First we need something to work on!
   packet_t* packet;
-  system_state_t system_state = HANDSHAKE;
+  enum system_states system_state = HANDSHAKE;
   while (packet == NULL) {
     // Read from the socket if there is anything.
     int bytes = recvfrom(socket_fd, buffer, MAX_PAYLOAD+1, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This socket is non-blocking.
@@ -95,7 +95,7 @@ char* window[WINDOW_SIZE_IN_PACKETS];
 for (;;) {
   // First we need something to work on!
   packet_t* packet;
-  system_state_t system_state = HANDSHAKE;
+  enum system_states system_state = HANDSHAKE;
 
   int bytes = recvfrom(socket_fd, buffer, MAX_PAYLOAD+1, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This socket is blocking.
 

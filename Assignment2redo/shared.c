@@ -171,6 +171,7 @@ void log_packet(char event_type, sockaddr_in* source, sockaddr_in* destination, 
 }
 // Outputs the log file.
 void log_statistics(statistics_t statistics) {
+  fprintf(stdout, "When I'm done programming this, magic will be performed.")
   // TODO
   return;
 }

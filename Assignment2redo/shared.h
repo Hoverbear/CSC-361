@@ -17,6 +17,14 @@
 
 #define MAX_PACKET_LENGTH 1024
 
+// System states. Should be self descriptive.
+enum system_states {
+  HANDSHAKE,
+  TRANSFER,
+  RESET,
+  EXIT
+};
+
 // Example Packet:
 // CHECKSUMHERE\nCSc361 DAT 3 2 1000 1001\n\nDATAHERE
 // CHECKSUMHERE\nCSc361 DAT 3 2 100 1001\n\nDATAHERE
