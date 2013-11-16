@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
   peer_address_size            = sizeof(struct sockaddr_in);
   // Socket Opts
   int socket_ops = 1;
-  if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&socket_ops, sizeof(socket_ops)) < 0) {
+  if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &socket_ops, sizeof(socket_ops)) < 0) {
     perror("Couldn't set socket.");
   }
   // Bind.
@@ -80,10 +80,10 @@ int main(int argc, char* argv[]) {
   unsigned short temp_seqno_compare; // Used for handling the sliding window.
   char* window = calloc(MAX_PAYLOAD_LENGTH * MAX_WINDOW_SIZE_IN_PACKETS, sizeof(char));
   char* buffer = calloc(MAX_PAYLOAD_LENGTH+1, sizeof(char));
+  enum system_states system_state = HANDSHAKE;
   for (;;) {
     // First we need something to work on!
     packet_t* packet;
-    enum system_states system_state = HANDSHAKE;
     fprintf(stderr, "Waiting to hear about crap on %s:%d\n", inet_ntoa(host_address.sin_addr), host_address.sin_port);
     int bytes = recvfrom(socket_fd, buffer, MAX_PAYLOAD_LENGTH+1, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This socket is blocking.
     if (bytes == -1) {

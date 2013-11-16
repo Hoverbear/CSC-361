@@ -97,7 +97,7 @@ unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen
   char* syn_string    = render_packet(&syn_packet);
   // Send it.
   fprintf(stderr, "Sending to %s:%d:\n%s\n", inet_ntoa(peer_address->sin_addr), peer_address->sin_port, syn_string);
-  sendto(socket_fd, syn_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) &peer_address, peer_address_size);
+  sendto(socket_fd, syn_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
   log_packet('s', host_address, peer_address, &syn_packet);
   // Free the stuff.
   free(syn_packet.data);
