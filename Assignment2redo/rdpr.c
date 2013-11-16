@@ -72,29 +72,64 @@ int main(int argc, char* argv[]) {
   if (bind(socket_fd, (struct sockaddr*) &host_address, sizeof(host_address)) < 0) {
     perror("Couldn't bind to socket");
   }
-  // BEGIN DIFFERENT CODE
-  // Prep, read, and start the timer on the packet.
-  int bytes;
-  char* buffer = calloc(MAX_PACKET_LENGTH, sizeof(char));
-  bytes = recvfrom(socket_fd, buffer, MAX_PACKET_LENGTH, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This populates our peer.
-  if (bytes == -1) { // This is an error.
-    perror("Bad recieve");
-  };
-  packet_t* incoming = parse_packet(buffer);
-  fprintf(stderr, "%s", buffer);
-  // GOt a a packet, send something back.
-  packet_t ack_packet;
-  ack_packet.type = ACK;
-  ack_packet.seqno = incoming->seqno + 1;
-  ack_packet.ackno = 0;
-  ack_packet.payload = 0;
-  ack_packet.window = 0;
-  ack_packet.data = calloc(1, sizeof(char));
-  strcpy(ack_packet.data, "");
-  char* ack_string = render_packet(&ack_packet);
-  fprintf(stderr, "Sending to %s:%d", inet_ntoa(peer_address.sin_addr), peer_address.sin_port);
-  sendto(socket_fd, ack_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) &peer_address, peer_address_size);
-  // END DIFFERENT CODE
+  //////////////////
+  // Reciever     //
+  //////////////////
+  unsigned short initial_seqno;
+  unsigned short system_seqno;
+  unsigned short temp_seqno_compare; // Used for handling the sliding window.
+  char* window = calloc(MAX_PAYLOAD_LENGTH * MAX_WINDOW_SIZE_IN_PACKETS, sizeof(char));
+  char* buffer = calloc(MAX_PAYLOAD_LENGTH+1, sizeof(char));
+  for (;;) {
+    // First we need something to work on!
+    packet_t* packet;
+    enum system_states system_state = HANDSHAKE;
+    fprintf(stderr, "Waiting to hear about crap on %s:%d\n", inet_ntoa(host_address.sin_addr), host_address.sin_port);
+    int bytes = recvfrom(socket_fd, buffer, MAX_PAYLOAD_LENGTH+1, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This socket is blocking.
+    if (bytes == -1) {
+      fprintf(stderr, "Error in receiving.\n");
+    }
+    fprintf(stderr, "Got some crap\n");
+    packet = parse_packet(buffer);
+    // By now, packet is something. But what type is it?
+    switch (packet->type) {
+      case SYN:
+        // Got a SYN request, awesome. Need to ACK it and get ready for DATA.
+        system_state = TRANSFER;
+        initial_seqno = packet->seqno;
+        system_seqno = initial_seqno;
+        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno);
+        break;
+      case ACK:
+        // Wait, why is the reciever getting an ACK?
+        fprintf(stderr, "You probably want to send an ACK on the reciever. ;)");
+        exit(-1);
+        break;
+      case DAT:
+        // Write the data into the window, that function will flush it to file and update the seqno if it has all the packets in a contiguous order.
+        temp_seqno_compare = system_seqno;
+        system_seqno = write_packet_to_window(&peer_address, peer_address_size, packet, window, initial_seqno); // Updates it only if the window flushed.
+          if (system_seqno != temp_seqno_compare) { // If it gets pushed forward.
+            send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno);
+          }
+        break;
+      case RST:
+        system_state = RESET;
+        // TODO: Rewind file pointer.
+        // TODO: Empty the window.
+        // TODO: Reset the connection, by sending an ACK.
+        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno);
+        system_state = HANDSHAKE;
+        break;
+      case FIN:
+        system_state = EXIT;
+        // Finished the file. We can send an ACK and close up shop.
+        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno);
+        log_statistics(statistics);
+        exit(0);
+        break;
+    }
+  }
   // 
   return 0;
 }

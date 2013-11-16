@@ -82,12 +82,13 @@ char* render_packet(packet_t* source) {
 }
 
 // Sets the initial sequence number.
-unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size) {
-  unsigned short seqno = (short) rand();
+unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, struct sockaddr_in* host_address) {
+  srand (time(NULL));
+  unsigned short seqno = (unsigned short) (rand() % 15089);
   // Build a SYN packet.
   packet_t syn_packet;
   syn_packet.type     = SYN;
-  syn_packet.seqno    = (unsigned short) rand();
+  syn_packet.seqno    = seqno;
   syn_packet.ackno    = 0;
   syn_packet.payload  = 0;
   syn_packet.window   = 0;
@@ -95,7 +96,9 @@ unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen
   strcpy(syn_packet.data, "");
   char* syn_string    = render_packet(&syn_packet);
   // Send it.
+  fprintf(stderr, "Sending to %s:%d:\n%s\n", inet_ntoa(peer_address->sin_addr), peer_address->sin_port, syn_string);
   sendto(socket_fd, syn_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) &peer_address, peer_address_size);
+  log_packet('s', host_address, peer_address, &syn_packet);
   // Free the stuff.
   free(syn_packet.data);
   free(syn_string);
@@ -212,7 +215,7 @@ packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout
 // Files        //
 //////////////////
 // Write the file to the buffer.
-unsigned short write_packet_to_window(struct sockaddr_in* peer_address, socklen_t peer_address_size, unsigned short window, unsigned short initial_seqno) { // Updates it only if the window flushed.
+unsigned short write_packet_to_window(struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet, char* window, unsigned short initial_seqno) { // Updates it only if the window flushed.
   // TODO
   return 0;
 }
@@ -232,7 +235,7 @@ void log_packet(char event_type, struct sockaddr_in* source, struct sockaddr_in*
   nowtm = localtime(&nowtime);
   strftime(time_string, 100, "%H:%M:%S", nowtm);
   // Format the log.
-  fprintf(stdout, "%s.%06d %c %s:%d %s:%d %s %d/%d %d/%d", time_string, (int) tv.tv_usec,
+  fprintf(stdout, "%s.%06d %c %s:%d %s:%d %s %d/%d %d/%d\n", time_string, (int) tv.tv_usec,
           event_type, inet_ntoa(source->sin_addr), source->sin_port, inet_ntoa(destination->sin_addr),
           destination->sin_port, packet_type_array[the_packet->type], the_packet->seqno,
           the_packet->ackno, the_packet->payload, the_packet->window);

@@ -18,6 +18,7 @@
 #define MAX_PACKET_LENGTH 1024  // Based on spec.
 #define TIMEOUT 2;              // 2 seconds.
 #define MAX_PAYLOAD_LENGTH 900  // Conservative.
+#define MAX_WINDOW_SIZE_IN_PACKETS 10
 
 // System states. Should be self descriptive.
 enum system_states {
@@ -87,7 +88,7 @@ packet_t* parse_packet(char* source);
 char* render_packet(packet_t* source);
 
 // Sets the initial sequence number.
-unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size);
+unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, struct sockaddr_in* host_address);
 // Finds (if applicable) a timed out packet from the queue.
 packet_t* get_timedout_packet(packet_t* timeout_queue);
 // Sends enough DAT packets to fill up the window give.
@@ -104,7 +105,7 @@ packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout
 // Files        //
 //////////////////
 // Write the file to the buffer.
-unsigned short write_packet_to_window(struct sockaddr_in* peer_address, socklen_t peer_address_size, unsigned short window, unsigned short initial_seqno); // Updates it only if the window flushed.
+unsigned short write_packet_to_window(struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet, char* window, unsigned short initial_seqno); // Updates it only if the window flushed.
 
 //////////////////
 // Logging      //

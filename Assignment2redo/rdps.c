@@ -14,6 +14,7 @@
 #include <sys/socket.h>   // Defines const/structs we need for sockets.
 #include <netinet/in.h>   // Defines const/structs we need for internet domain addresses.
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 // Internal Includes
 #include "shared.h"
@@ -58,6 +59,7 @@ int main(int argc, char* argv[]) {
   file            = fopen(file_name, "r");
   // Set up Host.
   socket_fd                    = socket(AF_INET, SOCK_DGRAM, 0);
+  fcntl(socket_fd, F_SETFL, O_NONBLOCK);
   host_address_size            = sizeof(struct sockaddr_in);
   if (socket_fd < 0) { fprintf(stderr, "Couldn't create a socket."); exit(-1); }
   host_address.sin_family      = AF_INET;
@@ -77,28 +79,97 @@ int main(int argc, char* argv[]) {
   if (bind(socket_fd, (struct sockaddr*) &host_address, sizeof(host_address)) < 0) {
     perror("Couldn't bind to socket");
   }
-  // BEGIN DIFFERENT CODE
-  // Make a SYN
-  packet_t syn_packet;
-  syn_packet.type = SYN;
-  syn_packet.seqno = (unsigned short) rand();
-  syn_packet.ackno = 0;
-  syn_packet.payload = 0;
-  syn_packet.window = 0;
-  syn_packet.data = calloc(1, sizeof(char));
-  strcpy(syn_packet.data, "");
-  char* syn_string = render_packet(&syn_packet);
-  sendto(socket_fd, syn_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) &peer_address, peer_address_size);
-  // Prep, read, and start the timer on the packet.
-  int bytes;
-  char* buffer = calloc(MAX_PACKET_LENGTH, sizeof(char));
-  bytes = recvfrom(socket_fd, buffer, MAX_PACKET_LENGTH, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This populates our peer.
-  if (bytes == -1) { // This is an error.
-    perror("Bad recieve");
-  };
-  packet_t* incoming = parse_packet(buffer);
-  fprintf(stderr, "%s", buffer);
-  // END DIFFERENT CODE
+  //////////////////
+  // Sender       //
+  //////////////////
+  fprintf(stderr, "HELLO I AM SENDING CRAP TO %s:%d\n", inet_ntoa(peer_address.sin_addr), peer_address.sin_port);
+  unsigned short initial_seqno = send_SYN(socket_fd, &peer_address, peer_address_size, &host_address); // Sets the initial random sequence number.
+  fprintf(stderr, "I AM DONE SENDING CRAP\n");
+  unsigned short system_seqno = initial_seqno;
+  char* buffer = calloc(MAX_PACKET_LENGTH+1, sizeof(char));
+  packet_t* timeout_queue; // Used for timeouts. Whenever you send DATs assign the return to this.
+  // Used for logging exclusively.
+  char log_type; // S, s, R, or r.
+  for (;;) {
+    // First we need something to work on!
+    packet_t* packet = calloc(1, sizeof(struct packet_t));
+    enum system_states system_state = HANDSHAKE;
+    while (packet == NULL) {
+      // Read from the socket if there is anything.
+      int bytes = recvfrom(socket_fd, buffer, MAX_PACKET_LENGTH+1, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This socket is non-blocking.
+      if (bytes == -1) {
+        // Didn't read anything.
+        // Find a packet that has timed out.
+        packet = get_timedout_packet(timeout_queue); // Returns NULL if no packet has timeout.
+        if (packet != NULL) { log_type = 'S'; }
+      } else {
+        // Got a packet, need to parse it.
+        packet = parse_packet(buffer);
+         // TODO: This might be broken..
+        if (packet->ackno < system_seqno) { log_type = 'R'; }
+        else { log_type = 'r'; }
+      }
+    }
+    if (log_type) {
+      log_packet(log_type, &host_address, &peer_address, packet);
+    }
+    // By now, packet is something. But what type is it?
+    switch (packet->type) {
+      case SYN:
+        // Wait, why is the reciever sending a SYN?
+        fprintf(stderr, "The sender shouldn't recieve SYNs. ;)");
+        exit(-1);
+        break;
+      case ACK:
+        // Act depending on what's required.
+        switch (system_state) {
+          case EXIT:
+            // Done, sent a FIN and got an ACK.
+            system_state = EXIT;
+            log_statistics(statistics);
+            exit(0);
+            break;
+          case HANDSHAKE:
+            system_state = TRANSFER;
+            // We're handshaked, start sending files.
+            // Don't update the seqno until we get ACKs.
+            timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &peer_address, 
+                              peer_address_size, file, &system_seqno, 
+                              packet->window, timeout_queue);
+            break;
+          case TRANSFER:
+            system_seqno = packet->seqno; // Update the seqno now!
+            // Drop the packet from timers.
+            timeout_queue = remove_packet_from_timers_by_ackno(packet, timeout_queue);
+            // Send some new data packets to fill that window.
+            timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &peer_address, 
+                              peer_address_size, file, &system_seqno, 
+                              packet->window, timeout_queue);
+            break;
+          default:
+            break;
+        }
+        break;
+      case DAT:
+        // This is a packet we need to resend. (Or the reciever sent us a DAT, in that case, wtf mate?)
+        // We know there is room here since it timed out. :)
+        resend_DAT(socket_fd, &peer_address, peer_address_size, packet);
+        break;
+      case RST:
+        // Need to restart the connection.
+        system_state = RESET;
+        // TODO: Rewind file pointer.
+        // TODO: Empty packet queue.
+        // TODO: Reset the connection, by sending a SYN.
+        system_state = HANDSHAKE;
+        break;
+      case FIN:
+        // Wait, why is the reciever sending a FIN?
+        fprintf(stderr, "You probably want to send a FIN on the sender. ;)");
+        exit(-1);
+        break;
+    }
+  }
   //
   return 0;
 }
