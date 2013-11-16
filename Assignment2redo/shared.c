@@ -110,7 +110,7 @@ packet_t* get_timedout_packet(packet_t* timeout_queue) {
   return head;
 }
 // Sends enough DAT packets to fill up the window give.
-packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, FILE* file, unsigned short starting_seqno, short window_size, packet_t* timeout_queue) {
+packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, FILE* file, unsigned short* current_seqno, short window_size, packet_t* timeout_queue) {
   packet_t* head = timeout_queue;
   // Calculate the number of packets to send given the window size.
   int packets_to_send = window_size / MAX_PAYLOAD_LENGTH;
@@ -118,7 +118,6 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer
   packet_t packet;
   packet.data = calloc(MAX_PAYLOAD_LENGTH, sizeof(char));
   char* packet_string;
-  unsigned short current_seqno = starting_seqno;
   while (sent_packets < packets_to_send) {
     // TODO: Verify this works!
     // Read in data from file.
@@ -126,7 +125,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer
       // If it's NULL, it's time to send a FIN packet and break out.
       // Build.
       packet.type     = FIN;
-      packet.seqno    = current_seqno; // TODO: Might not need this (Could be 0)
+      packet.seqno    = *current_seqno; // TODO: Might not need this (Could be 0)
       packet.ackno    = 0;
       packet.payload  = 0;
       packet.window   = 0;
@@ -138,8 +137,8 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer
     } else {
       // Build.
       packet.type     = DAT;
-      current_seqno += strlen(packet.data);
-      packet.seqno    = current_seqno; // TODO: Might need +1
+      *current_seqno += strlen(packet.data);
+      packet.seqno    = *current_seqno; // TODO: Might need +1
       packet.ackno    = 0;
       packet.payload  = 0;
       packet.window   = 0;
@@ -158,7 +157,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* peer
   return head;
 }
 // Send an ACK for the given seqno.
-void send_ACK(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, short seqno) {
+void send_ACK(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, short seqno) {
   // Build an ACK packet.
   packet_t ack_packet;
   ack_packet.type     = ACK;
@@ -169,6 +168,7 @@ void send_ACK(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_ad
   ack_packet.data     = calloc(1, sizeof(char));
   strcpy(ack_packet.data, "");
   char* ack_string    = render_packet(&ack_packet);
+  log_packet('s', host_address, peer_address, &ack_packet);
   // Send it.
   sendto(socket_fd, ack_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) &peer_address, peer_address_size);
   // Free the stuff.

@@ -28,7 +28,9 @@ for (;;) {
       else { log_type = 'r'; }
     }
   }
-  log_packet(packet, log_type);
+  if (log_type != NULL) {
+    log_packet(host_address, peer_address, packet, log_type);
+  }
   // By now, packet is something. But what type is it?
   switch (packet->type) {
     case SYN:
@@ -59,7 +61,7 @@ for (;;) {
           timeout_queue = remove_packet_from_timers_by_ackno(packet);
           // Send some new data packets to fill that window.
           timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &peer_address, 
-                            peer_address_size, file, system_seqno, 
+                            peer_address_size, file, &system_seqno, 
                             packet->window, timeout_queue);
           break;
       }
