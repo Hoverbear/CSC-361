@@ -82,6 +82,7 @@ int main(int argc, char* argv[]) {
   int window_size = MAX_WINDOW_SIZE_IN_PACKETS;
   char* buffer = calloc(MAX_PACKET_LENGTH+1, sizeof(char));
   enum system_states system_state = HANDSHAKE;
+  char* packet_string;
   for (;;) {
     memset(buffer, '\0', MAX_PACKET_LENGTH);
     // First we need something to work on!
@@ -126,8 +127,17 @@ int main(int argc, char* argv[]) {
         break;
       case FIN:
         system_state = EXIT;
-        // Finished the file. We can send an ACK and close up shop.
-        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (unsigned short) (MAX_PAYLOAD_LENGTH * window_size));
+        // Finished the file. We can send a FIN back and close up shop.
+        packet_string = render_packet(packet);
+        // Send.
+        log_packet('s', &host_address, &peer_address, packet);
+        sendto(socket_fd, packet_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) &peer_address, peer_address_size);
+        // Flush the queue.
+        while (file_head != NULL) {
+      fprintf(stderr, "Writing seqno %d to file::\n--\n%s\n--\n", file_head->seqno, file_head->data);
+          fprintf(file, "%s", file_head->data);
+          file_head = file_head->next;
+        }
         log_statistics(statistics);
         exit(0);
         break;

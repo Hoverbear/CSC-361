@@ -84,7 +84,7 @@ char* render_packet(packet_t* source) {
 // Sets the initial sequence number.
 unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, struct sockaddr_in* host_address) {
   srand (time(NULL));
-  unsigned short seqno = (unsigned short) (rand() % 15089);
+  unsigned short seqno = (unsigned short) (rand() % 65530);
   // Build a SYN packet.
   packet_t syn_packet;
   syn_packet.type     = SYN;
@@ -112,7 +112,7 @@ packet_t* get_timedout_packet(packet_t* timeout_queue) {
   return head;
 }
 // Sends enough DAT packets to fill up the window give.
-packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, FILE* file, unsigned short* current_seqno, unsigned short window_size, packet_t* timeout_queue) {
+packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, FILE* file, unsigned short* current_seqno, unsigned short window_size, packet_t* timeout_queue, enum system_states* system_state) {
   packet_t* head = timeout_queue;
   // Calculate the number of packets to send given the window size.
   int packets_to_send = window_size / MAX_PAYLOAD_LENGTH;
@@ -124,11 +124,12 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
     // TODO: Verify this works!
     // Read in data from file.
     unsigned short seqno_increment = 0;
-    if ((seqno_increment = (unsigned short) fread(packet.data, sizeof(char), MAX_PAYLOAD_LENGTH, file)) != MAX_PAYLOAD_LENGTH) {
+    memset(packet.data, '\0', MAX_PAYLOAD_LENGTH);
+    if ((seqno_increment = (unsigned short) fread(packet.data, sizeof(char), MAX_PAYLOAD_LENGTH, file)) == 0) {
       // If it's NULL, it's time to send a FIN packet and break out.
       // Build.
       packet.type     = FIN;
-      packet.seqno    = *current_seqno; // TODO: Might not need this (Could be 0)
+      packet.seqno    = 0;
       packet.ackno    = 0;
       packet.payload  = 0;
       packet.window   = 0;
@@ -138,6 +139,8 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
       log_packet('s', host_address, peer_address, &packet);
       sendto(socket_fd, packet_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
       free(packet_string);
+      fprintf(stderr, "Setting state to exit.\n");
+      *system_state = EXIT;
       break;
     } else {
       // Build.
@@ -150,6 +153,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
       // Send.
       log_packet('s', host_address, peer_address, &packet);
       sendto(socket_fd, packet_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
+      fprintf(stderr, "Sending seqno %d::\n--\n%s\n--\n", packet.seqno, packet.data);
       // Increment the number of packets sent.
       free(packet_string);
       sent_packets++;
@@ -227,7 +231,7 @@ packet_t* write_packet_to_window(packet_t* packet, packet_t* head, FILE* file, i
     travelled++;
   } else {
     while (selected_window_packet->next != NULL && (ttl--) != 0) {
-      if (selected_window_packet->next->seqno > selected_window_packet->seqno + MAX_PAYLOAD_LENGTH) { // The <= catches the final packet.
+      if (selected_window_packet->next->seqno > selected_window_packet->seqno + MAX_PAYLOAD_LENGTH) {
         // If we're in this statement, it means we're not contiguous, so we can't flush the window.
         is_contiguous = 0;
       }
@@ -251,6 +255,7 @@ packet_t* write_packet_to_window(packet_t* packet, packet_t* head, FILE* file, i
       travelled++;
     }
     while (head != selected_window_packet) {
+      fprintf(stderr, "Writing seqno %d to file::\n--\n%s\n--\n", head->seqno, head->data);
       // Flush up to this point into a file by looping through the packets.
       fprintf(file, "%s", head->data);
       head = head->next;  // Update the head of the window.

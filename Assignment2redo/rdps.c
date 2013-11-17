@@ -122,19 +122,14 @@ int main(int argc, char* argv[]) {
       case ACK:
         // Act depending on what's required.
         switch (system_state) {
-          case EXIT:
-            // Done, sent a FIN and got an ACK.
-            system_state = EXIT;
-            log_statistics(statistics);
-            exit(0);
-            break;
           case HANDSHAKE:
             system_state = TRANSFER;
             // We're handshaked, start sending files.
             // Don't update the seqno until we get ACKs.
             timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &host_address, &peer_address, 
                               peer_address_size, file, &system_seqno, 
-                              packet->window, timeout_queue);
+                              packet->window, timeout_queue, &system_state);
+            fprintf(stderr, "State: %d\n", system_state);
             break;
           case TRANSFER:
             // Drop the packet from timers.
@@ -142,7 +137,8 @@ int main(int argc, char* argv[]) {
             // Send some new data packets to fill that window.
             timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &host_address, &peer_address, 
                               peer_address_size, file, &system_seqno, 
-                              packet->window, timeout_queue);
+                              packet->window, timeout_queue, &system_state);
+            fprintf(stderr, "State: %d\n", system_state);
             break;
           default:
             break;
@@ -162,9 +158,9 @@ int main(int argc, char* argv[]) {
         system_state = HANDSHAKE;
         break;
       case FIN:
-        // Wait, why is the reciever sending a FIN?
-        fprintf(stderr, "You probably want to send a FIN on the sender. ;)");
-        exit(-1);
+        // Got a FIN response.
+        log_statistics(statistics);
+        exit(0);
         break;
       default:
         fprintf(stderr, "Packet was invalid type\n");
