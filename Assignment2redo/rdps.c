@@ -82,20 +82,19 @@ int main(int argc, char* argv[]) {
   //////////////////
   // Sender       //
   //////////////////
-  fprintf(stderr, "HELLO I AM SENDING CRAP TO %s:%d\n", inet_ntoa(peer_address.sin_addr), peer_address.sin_port);
   unsigned short initial_seqno = send_SYN(socket_fd, &peer_address, peer_address_size, &host_address); // Sets the initial random sequence number.
-  fprintf(stderr, "I AM DONE SENDING CRAP\n");
   unsigned short system_seqno = initial_seqno;
   char* buffer = calloc(MAX_PACKET_LENGTH+1, sizeof(char));
   packet_t* timeout_queue; // Used for timeouts. Whenever you send DATs assign the return to this.
   // Used for logging exclusively.
   char log_type; // S, s, R, or r.
+  packet_t* packet = NULL;
   for (;;) {
     // First we need something to work on!
-    packet_t* packet = calloc(1, sizeof(struct packet_t));
     enum system_states system_state = HANDSHAKE;
     while (packet == NULL) {
       // Read from the socket if there is anything.
+      memset(buffer, '\0', MAX_PACKET_LENGTH+1);
       int bytes = recvfrom(socket_fd, buffer, MAX_PACKET_LENGTH+1, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This socket is non-blocking.
       if (bytes == -1) {
         // Didn't read anything.
@@ -113,11 +112,12 @@ int main(int argc, char* argv[]) {
     if (log_type) {
       log_packet(log_type, &host_address, &peer_address, packet);
     }
+    fprintf(stderr, "-(type:%d,win:%d)--\n%s--\n", packet->type, packet->window, buffer);
     // By now, packet is something. But what type is it?
     switch (packet->type) {
       case SYN:
         // Wait, why is the reciever sending a SYN?
-        fprintf(stderr, "The sender shouldn't recieve SYNs. ;)");
+        fprintf(stderr, "The sender shouldn't receive SYNs. ;)");
         exit(-1);
         break;
       case ACK:
@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
             system_state = TRANSFER;
             // We're handshaked, start sending files.
             // Don't update the seqno until we get ACKs.
-            timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &peer_address, 
+            timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &host_address, &peer_address, 
                               peer_address_size, file, &system_seqno, 
                               packet->window, timeout_queue);
             break;
@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
             // Drop the packet from timers.
             timeout_queue = remove_packet_from_timers_by_ackno(packet, timeout_queue);
             // Send some new data packets to fill that window.
-            timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &peer_address, 
+            timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &host_address, &peer_address, 
                               peer_address_size, file, &system_seqno, 
                               packet->window, timeout_queue);
             break;
@@ -168,7 +168,11 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "You probably want to send a FIN on the sender. ;)");
         exit(-1);
         break;
+      default:
+        fprintf(stderr, "Packet was invalid type\n");
+        break;
     }
+    packet = NULL;
   }
   //
   return 0;

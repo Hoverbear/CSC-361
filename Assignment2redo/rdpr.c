@@ -78,19 +78,20 @@ int main(int argc, char* argv[]) {
   unsigned short initial_seqno;
   unsigned short system_seqno;
   unsigned short temp_seqno_compare; // Used for handling the sliding window.
-  char* window = calloc(MAX_PAYLOAD_LENGTH * MAX_WINDOW_SIZE_IN_PACKETS, sizeof(char));
-  char* buffer = calloc(MAX_PAYLOAD_LENGTH+1, sizeof(char));
+  char* window = calloc(MAX_WINDOW_SIZE_IN_PACKETS, sizeof(char));
+  int window_position = 0;
+  char* buffer = calloc(MAX_PACKET_LENGTH+1, sizeof(char));
   enum system_states system_state = HANDSHAKE;
   for (;;) {
+    memset(buffer, '\0', MAX_PACKET_LENGTH+1);
     // First we need something to work on!
     packet_t* packet;
-    fprintf(stderr, "Waiting to hear about crap on %s:%d\n", inet_ntoa(host_address.sin_addr), host_address.sin_port);
     int bytes = recvfrom(socket_fd, buffer, MAX_PAYLOAD_LENGTH+1, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This socket is blocking.
     if (bytes == -1) {
       fprintf(stderr, "Error in receiving.\n");
     }
-    fprintf(stderr, "Got some crap\n");
     packet = parse_packet(buffer);
+    log_packet('s', &host_address, &peer_address, packet);
     // By now, packet is something. But what type is it?
     switch (packet->type) {
       case SYN:
@@ -98,7 +99,7 @@ int main(int argc, char* argv[]) {
         system_state = TRANSFER;
         initial_seqno = packet->seqno;
         system_seqno = initial_seqno;
-        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno);
+        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (unsigned short) (-1* MAX_PAYLOAD_LENGTH * (window_position - MAX_WINDOW_SIZE_IN_PACKETS)));
         break;
       case ACK:
         // Wait, why is the reciever getting an ACK?
@@ -109,22 +110,22 @@ int main(int argc, char* argv[]) {
         // Write the data into the window, that function will flush it to file and update the seqno if it has all the packets in a contiguous order.
         temp_seqno_compare = system_seqno;
         system_seqno = write_packet_to_window(&peer_address, peer_address_size, packet, window, initial_seqno); // Updates it only if the window flushed.
-          if (system_seqno != temp_seqno_compare) { // If it gets pushed forward.
-            send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno);
-          }
+        if (system_seqno != temp_seqno_compare) { // If it gets pushed forward.
+          send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (unsigned short) (-1* MAX_PAYLOAD_LENGTH * (window_position - MAX_WINDOW_SIZE_IN_PACKETS)) );
+        }
         break;
       case RST:
         system_state = RESET;
         // TODO: Rewind file pointer.
         // TODO: Empty the window.
         // TODO: Reset the connection, by sending an ACK.
-        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno);
+        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (unsigned short) (-1* MAX_PAYLOAD_LENGTH * (window_position - MAX_WINDOW_SIZE_IN_PACKETS)));
         system_state = HANDSHAKE;
         break;
       case FIN:
         system_state = EXIT;
         // Finished the file. We can send an ACK and close up shop.
-        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno);
+        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (unsigned short) (-1* MAX_PAYLOAD_LENGTH * (window_position - MAX_WINDOW_SIZE_IN_PACKETS)));
         log_statistics(statistics);
         exit(0);
         break;
