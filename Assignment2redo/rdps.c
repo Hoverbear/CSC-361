@@ -112,7 +112,6 @@ int main(int argc, char* argv[]) {
     if (log_type) {
       log_packet(log_type, &host_address, &peer_address, packet);
     }
-    fprintf(stderr, "-(type:%d,win:%d)--\n%s--\n", packet->type, packet->window, buffer);
     // By now, packet is something. But what type is it?
     switch (packet->type) {
       case SYN:
@@ -138,7 +137,6 @@ int main(int argc, char* argv[]) {
                               packet->window, timeout_queue);
             break;
           case TRANSFER:
-            system_seqno = packet->seqno; // Update the seqno now!
             // Drop the packet from timers.
             timeout_queue = remove_packet_from_timers_by_ackno(packet, timeout_queue);
             // Send some new data packets to fill that window.

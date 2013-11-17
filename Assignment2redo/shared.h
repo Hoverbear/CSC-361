@@ -105,7 +105,7 @@ packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout
 // Files        //
 //////////////////
 // Write the file to the buffer.
-unsigned short write_packet_to_window(struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet, char* window, unsigned short initial_seqno); // Updates it only if the window flushed.
+packet_t* write_packet_to_window(packet_t* packet, packet_t* head, FILE* file, int* window_size); // Updates it only if the window flushed.
 
 //////////////////
 // Logging      //
