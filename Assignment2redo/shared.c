@@ -234,7 +234,6 @@ packet_t* write_packet_to_window(packet_t* packet, packet_t* head, FILE* file, i
     while (selected_window_packet->next != NULL && (ttl--) != 0) {
       // Determine if there is a rollover.
       unsigned short next_possible_seqno = (unsigned short) ((selected_window_packet->seqno + MAX_PAYLOAD_LENGTH) % MAX_SHORT);
-      fprintf(stderr, "Selected Packet next seqnoz: %d .... Next possible seqno: %d\n", selected_window_packet->next->seqno, next_possible_seqno);
       if (selected_window_packet->next->seqno != next_possible_seqno) {
         // If we're in this statement, it means we're not contiguous, so we can't flush the window.
         is_contiguous = 0;

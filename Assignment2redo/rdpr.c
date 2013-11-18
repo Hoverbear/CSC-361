@@ -134,7 +134,6 @@ int main(int argc, char* argv[]) {
         sendto(socket_fd, packet_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) &peer_address, peer_address_size);
         // Flush the queue.
         while (file_head != NULL) {
-      fprintf(stderr, "Writing seqno %d to file::\n--\n%s\n--\n", file_head->seqno, file_head->data);
           fprintf(file, "%s", file_head->data);
           file_head = file_head->next;
         }
