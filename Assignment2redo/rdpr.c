@@ -78,7 +78,7 @@ int main(int argc, char* argv[]) {
   unsigned short initial_seqno;
   unsigned short system_seqno;
   packet_t* file_head = NULL;
-  packet_t* temp_head;
+  int temp_win_size = MAX_WINDOW_SIZE_IN_PACKETS;
   int window_size = MAX_WINDOW_SIZE_IN_PACKETS;
   char* buffer = calloc(MAX_PACKET_LENGTH+1, sizeof(char));
   enum system_states system_state = HANDSHAKE;
@@ -113,9 +113,12 @@ int main(int argc, char* argv[]) {
         break;
       case DAT:
         // Write the data into the window, that function will flush it to file and update the seqno if it has all the packets in a contiguous order.
-        temp_head = file_head;
+        temp_win_size = window_size;
         file_head = write_packet_to_window(packet, file_head, file, &window_size); // THIS UPDATED WINDOW_SIZE
-        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, file_head->seqno, (unsigned short) (MAX_PAYLOAD_LENGTH * window_size));
+        fprintf(stderr, "Window size is %d\n", window_size);
+        if (window_size == MAX_WINDOW_SIZE_IN_PACKETS) {
+          send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (unsigned short) (MAX_PAYLOAD_LENGTH * window_size));
+        }
         break;
       case RST:
         system_state = RESET;

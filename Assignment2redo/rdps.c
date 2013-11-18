@@ -89,9 +89,9 @@ int main(int argc, char* argv[]) {
   // Used for logging exclusively.
   char log_type; // S, s, R, or r.
   packet_t* packet = NULL;
+  enum system_states system_state = HANDSHAKE;
   for (;;) {
     // First we need something to work on!
-    enum system_states system_state = HANDSHAKE;
     while (packet == NULL) {
       // Read from the socket if there is anything.
       memset(buffer, '\0', MAX_PACKET_LENGTH+1);
@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
             break;
           case TRANSFER:
             // Drop the packet from timers.
-            timeout_queue = remove_packet_from_timers_by_ackno(packet, timeout_queue);
+            // timeout_queue = remove_packet_from_timers_by_ackno(packet, timeout_queue);
             // Send some new data packets to fill that window.
             timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &host_address, &peer_address, 
                               peer_address_size, file, &system_seqno, 
