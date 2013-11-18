@@ -84,7 +84,8 @@ char* render_packet(packet_t* source) {
 // Sets the initial sequence number.
 unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, struct sockaddr_in* host_address) {
   srand (time(NULL));
-  unsigned short seqno = (unsigned short) (rand() % 65530);
+  // unsigned short seqno = (unsigned short) (rand() % 65530);
+  unsigned short seqno = 0;
   // Build a SYN packet.
   packet_t syn_packet;
   syn_packet.type     = SYN;
@@ -231,11 +232,14 @@ packet_t* write_packet_to_window(packet_t* packet, packet_t* head, FILE* file, i
     travelled++;
   } else {
     while (selected_window_packet->next != NULL && (ttl--) != 0) {
-      if (selected_window_packet->next->seqno > selected_window_packet->seqno + MAX_PAYLOAD_LENGTH) {
+      // Determine if there is a rollover.
+      unsigned short next_possible_seqno = (unsigned short) ((selected_window_packet->seqno + MAX_PAYLOAD_LENGTH) % MAX_SHORT);
+      fprintf(stderr, "Selected Packet next seqnoz: %d .... Next possible seqno: %d\n", selected_window_packet->next->seqno, next_possible_seqno);
+      if (selected_window_packet->next->seqno != next_possible_seqno) {
         // If we're in this statement, it means we're not contiguous, so we can't flush the window.
         is_contiguous = 0;
       }
-      if (selected_window_packet->next->seqno >= packet->seqno) { // It means we insert the packet here.
+      if (selected_window_packet->next->seqno == packet->seqno) { // It means we insert the packet here.
         break;
       }
       selected_window_packet = selected_window_packet->next; // Move forward.
@@ -255,7 +259,6 @@ packet_t* write_packet_to_window(packet_t* packet, packet_t* head, FILE* file, i
       travelled++;
     }
     while (head != selected_window_packet) {
-      fprintf(stderr, "Writing seqno %d to file::\n--\n%s\n--\n", head->seqno, head->data);
       // Flush up to this point into a file by looping through the packets.
       fprintf(file, "%s", head->data);
       head = head->next;  // Update the head of the window.

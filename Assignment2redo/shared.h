@@ -16,10 +16,10 @@
 #include <arpa/inet.h>
 
 #define MAX_PACKET_LENGTH 1024  // Based on spec.
-#define TIMEOUT 2;              // 2 seconds.
+#define TIMEOUT 2               // 2 seconds.
 #define MAX_PAYLOAD_LENGTH 900  // Conservative.
 #define MAX_WINDOW_SIZE_IN_PACKETS 10
-
+#define MAX_SHORT 65535
 // System states. Should be self descriptive.
 enum system_states {
   HANDSHAKE,
