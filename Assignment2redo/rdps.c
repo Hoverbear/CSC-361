@@ -101,7 +101,7 @@ int main(int argc, char* argv[]) {
         // Find a packet that has timed out.
         packet = get_timedout_packet(timeout_queue); // Returns NULL if no packet has timeout.
         if (packet != NULL) { 
-          fprintf(stderr, "Packet is %d\n", packet);
+          // fprintf(stderr, "Packet is %d\n", packet);
           log_type = 'S'; 
         }
       } else {

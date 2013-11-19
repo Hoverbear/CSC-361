@@ -116,7 +116,7 @@ packet_t* get_timedout_packet(packet_t* timeout_queue) {
   // Get the first one we need to send.
   while (head != NULL) {
     if (head->timeout.tv_usec == 0 || head->timeout.tv_usec > TIMEOUT * 5000) {
-      fprintf(stderr, "Returning head %d %d %d\n", head->timeout.tv_usec, now.tv_usec, steps);
+      // fprintf(stderr, "Returning head %d %d %d\n", head->timeout.tv_usec, now.tv_usec, steps);
       return head;
     }
     steps++;
@@ -139,7 +139,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
     packet_t* packet = calloc(1, sizeof(struct packet_t));
     packet->data = calloc(MAX_PAYLOAD_LENGTH+1, sizeof(char));
     if ((seqno_increment = (unsigned short) fread(packet->data, sizeof(char), MAX_PAYLOAD_LENGTH, file)) == 0) {
-      fprintf(stderr, "Should be EOF, ackno %d, cur %d\n", last_ack->ackno, *current_seqno);
+      // fprintf(stderr, "Should be EOF, ackno %d, cur %d\n", last_ack->ackno, *current_seqno);
       if (last_ack->ackno == *current_seqno ) {// If it's NULL, it's time to send a FIN packet and break out.
         // Build.
         packet->type     = FIN;
@@ -157,7 +157,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
       }
       break;
     } else {
-      fprintf(stderr, "         ----Block write %d/%d have win %d----\n", sent_packets+1, packets_to_send, last_ack->window);
+      // fprintf(stderr, "         ----Block write %d/%d have win %d----\n", sent_packets+1, packets_to_send, last_ack->window);
       // Build.
       packet->type     = DAT;
       packet->seqno    = *current_seqno; // TODO: Might need +1
@@ -233,7 +233,7 @@ packet_t* add_to_timers(packet_t* timeout_queue, packet_t* packet) {
 
 // Remove packets up to the given packet's ackno.
 packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout_queue) {
-  fprintf(stderr, "Removing a packet\n");
+  // fprintf(stderr, "Removing a packet\n");
   packet_t* head = timeout_queue;
   packet_t* current = head;
   // Try to find the packet this corresponds to. Actually, we want the one before it. (We need to unlink it)
@@ -264,23 +264,23 @@ packet_t* write_packet_to_window(packet_t* packet, packet_t* head, FILE* file, i
   int ttl = MAX_WINDOW_SIZE_IN_PACKETS;
   // Walk through the packet list and find where this should go. For this operation you could get the spot **before** where this one will go, since you need to insert it. IF you go past your determined WINDOW_SIZE, drop the packet and exit.
   if (selected_window_packet == NULL) {
-    fprintf(stderr, "Selected_window_packet == NULL\n");
+    // fprintf(stderr, "Selected_window_packet == NULL\n");
     // We're at the HEAD of the window, it hasn't been populated, good for us!
     head = packet; // Return the address of the new head!
     selected_window_packet = head;
     travelled++;
   } else {
-    fprintf(stderr, "Traversing, since head is not null\n");
+    // fprintf(stderr, "Traversing, since head is not null\n");
     while (selected_window_packet->next != NULL && (ttl--) != 0) {
       // Determine if there is a rollover.
       unsigned short next_possible_seqno = selected_window_packet->seqno + MAX_PAYLOAD_LENGTH;
       if (selected_window_packet->next->seqno != next_possible_seqno) {
         // If we're in this statement, it means we're not contiguous, so we can't flush the window.
-        fprintf(stderr, "No longer contig %d != %d\n", selected_window_packet->next->seqno, next_possible_seqno);
+        // fprintf(stderr, "No longer contig %d != %d\n", selected_window_packet->next->seqno, next_possible_seqno);
         is_contiguous = 0;
       }
       if (selected_window_packet->next->seqno == packet->seqno + MAX_PAYLOAD_LENGTH) { // It means we insert the packet here.
-        fprintf(stderr, "Found my spot\n");
+        // fprintf(stderr, "Found my spot\n");
         break;
       }
       selected_window_packet = selected_window_packet->next; // Move forward.
@@ -292,18 +292,18 @@ packet_t* write_packet_to_window(packet_t* packet, packet_t* head, FILE* file, i
     selected_window_packet = selected_window_packet->next;
     travelled += 2;
   }
-  fprintf(stderr, "Is Contig:%d, has travelled %d\n", is_contiguous, travelled);
+  // fprintf(stderr, "Is Contig:%d, has travelled %d\n", is_contiguous, travelled);
   if (is_contiguous && selected_window_packet != NULL && (travelled == MAX_WINDOW_SIZE_IN_PACKETS || selected_window_packet->payload < MAX_PAYLOAD_LENGTH)) {
-    fprintf(stderr, "Contig, window packet is not null\n");
+    // fprintf(stderr, "Contig, window packet is not null\n");
     // Up until this point should be flushed to file. Do we need to do more?
     while (selected_window_packet->next != NULL && !(selected_window_packet->next->seqno >= selected_window_packet->seqno + MAX_PAYLOAD_LENGTH)) {
-      fprintf(stderr, "In the stupid while loop\n");
+      // fprintf(stderr, "In the stupid while loop\n");
       // Walk through the rest of the nodes until we're going to hit a node that wouldn't be contiguous.
       selected_window_packet = selected_window_packet->next;
       travelled++;
     }
     while (head == selected_window_packet || head->seqno != selected_window_packet->seqno) {
-      fprintf(stderr, "Flushing out %d\n", head->seqno);
+      // fprintf(stderr, "Flushing out %d\n", head->seqno);
       // Flush up to this point into a file by looping through the packets.
       fwrite(head->data, sizeof(char), head->payload, file);
       head = head->next;  // Update the head of the window.

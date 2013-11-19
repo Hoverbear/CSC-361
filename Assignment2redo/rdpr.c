@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
         // Write the data into the window, that function will flush it to file and update the seqno if it has all the packets in a contiguous order.
         temp_win_size = window_size;
         file_head = write_packet_to_window(packet, file_head, file, &window_size); // THIS UPDATED WINDOW_SIZE
-        fprintf(stderr, "Window size is %d\n", window_size);
+        // fprintf(stderr, "Window size is %d\n", window_size);
         if (window_size > 0) {
           send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (unsigned short) (MAX_PAYLOAD_LENGTH * window_size));
         }
