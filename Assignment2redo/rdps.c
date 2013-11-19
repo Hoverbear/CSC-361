@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
   unsigned short initial_seqno = send_SYN(socket_fd, &peer_address, peer_address_size, &host_address); // Sets the initial random sequence number.
   unsigned short system_seqno = initial_seqno;
   char* buffer = calloc(MAX_PACKET_LENGTH+1, sizeof(char));
-  packet_t* timeout_queue; // Used for timeouts. Whenever you send DATs assign the return to this.
+  packet_t* timeout_queue = NULL; // Used for timeouts. Whenever you send DATs assign the return to this.
   // Used for logging exclusively.
   char log_type; // S, s, R, or r.
   packet_t* packet = NULL;
