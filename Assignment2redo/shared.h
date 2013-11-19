@@ -93,7 +93,7 @@ unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen
 packet_t* get_timedout_packet(packet_t* timeout_queue);
 // Sends enough DAT packets to fill up the window give.
 packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size,
-                       FILE* file, unsigned short* current_seqno, unsigned short window_size, packet_t* timeout_queue, enum system_states* system_state);
+                       FILE* file, unsigned short* current_seqno, packet_t* last_ack, packet_t* timeout_queue, enum system_states* system_state);
 // Send an ACK for the given seqno.
 void send_ACK(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, short seqno, short window_size);
 // (Re)send a DAT packet.

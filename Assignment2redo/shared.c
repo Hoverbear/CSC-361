@@ -114,15 +114,16 @@ packet_t* get_timedout_packet(packet_t* timeout_queue) {
   return head;
 }
 // Sends enough DAT packets to fill up the window give.
-packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, FILE* file, unsigned short* current_seqno, unsigned short window_size, packet_t* timeout_queue, enum system_states* system_state) {
+packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, FILE* file, unsigned short* current_seqno, packet_t* last_ack, packet_t* timeout_queue, enum system_states* system_state) {
   packet_t* head = timeout_queue;
   // Calculate the number of packets to send given the window size.
-  int packets_to_send = window_size / MAX_PAYLOAD_LENGTH;
+  unsigned short initial_seqno = *current_seqno;
+  int packets_to_send = (last_ack->window - (*current_seqno - last_ack->ackno)) / MAX_PAYLOAD_LENGTH;
   int sent_packets = 0;
   packet_t packet;
   packet.data = calloc(MAX_PAYLOAD_LENGTH, sizeof(char));
   char* packet_string;
-  while (sent_packets < packets_to_send) {
+  while (sent_packets < packets_to_send && last_ack->window - (*current_seqno - initial_seqno) >= 0) {
     // TODO: Verify this works!
     // Read in data from file.
     unsigned short seqno_increment = 0;
@@ -155,10 +156,12 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
       // Send.
       log_packet('s', host_address, peer_address, &packet);
       sendto(socket_fd, packet_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
-      fprintf(stderr, "Sending seqno %d::\n--\n%s\n--\n", packet.seqno, packet.data);
+
       // Increment the number of packets sent.
       free(packet_string);
-      sent_packets++;
+      if (seqno_increment != MAX_PAYLOAD_LENGTH) {
+        sent_packets++;
+      }
       *current_seqno += seqno_increment;
     }
   }
@@ -301,7 +304,7 @@ void log_packet(char event_type, struct sockaddr_in* source, struct sockaddr_in*
   nowtm = localtime(&nowtime);
   strftime(time_string, 100, "%H:%M:%S", nowtm);
   // Format the log.
-  fprintf(stdout, "%s.%06d %c %s:%d %s:%d %s %d/%d %d/%d\n", time_string, (int) tv.tv_usec,
+  fprintf(stdout, "%s.%06li %c %s:%d %s:%d %s %d/%d %d/%d\n", time_string, (long int) tv.tv_usec,
           event_type, inet_ntoa(source->sin_addr), source->sin_port, inet_ntoa(destination->sin_addr),
           destination->sin_port, packet_type_array[the_packet->type], the_packet->seqno,
           the_packet->ackno, the_packet->payload, the_packet->window);

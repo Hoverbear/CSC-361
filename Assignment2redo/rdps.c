@@ -128,7 +128,7 @@ int main(int argc, char* argv[]) {
             // Don't update the seqno until we get ACKs.
             timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &host_address, &peer_address, 
                               peer_address_size, file, &system_seqno, 
-                              packet->window, timeout_queue, &system_state);
+                              packet, timeout_queue, &system_state);
             break;
           case TRANSFER:
             // Drop the packet from timers.
@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
             // Send some new data packets to fill that window.
             timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &host_address, &peer_address, 
                               peer_address_size, file, &system_seqno, 
-                              packet->window, timeout_queue, &system_state);
+                              packet, timeout_queue, &system_state);
             break;
           default:
             break;
