@@ -110,8 +110,19 @@ unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen
 // Finds (if applicable) a timed out packet from the queue.
 packet_t* get_timedout_packet(packet_t* timeout_queue) {
   packet_t* head = timeout_queue;
-  // TODO
-  return head;
+  struct timeval now;
+  gettimeofday(&now, NULL);
+  int steps = 0;
+  // Get the first one we need to send.
+  while (head != NULL) {
+    if (head->timeout.tv_usec == 0 || head->timeout.tv_usec > TIMEOUT * 5000) {
+      fprintf(stderr, "Returning head %d %d %d\n", head->timeout.tv_usec, now.tv_usec, steps);
+      return head;
+    }
+    steps++;
+    head = head->next;
+  }
+  return NULL;
 }
 // Sends enough DAT packets to fill up the window give.
 packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, FILE* file, unsigned short* current_seqno, packet_t* last_ack, packet_t* timeout_queue, enum system_states* system_state) {
@@ -120,45 +131,43 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
   unsigned short initial_seqno = *current_seqno;
   int packets_to_send = (last_ack->window - (*current_seqno - last_ack->ackno)) / MAX_PAYLOAD_LENGTH;
   int sent_packets = 0;
-  packet_t packet;
-  packet.data = calloc(MAX_PAYLOAD_LENGTH, sizeof(char));
   char* packet_string;
   while (sent_packets < packets_to_send && last_ack->window - (*current_seqno - initial_seqno) >= 0) {
     // TODO: Verify this works!
     // Read in data from file.
     unsigned short seqno_increment = 0;
-    memset(packet.data, '\0', MAX_PAYLOAD_LENGTH);
-    if ((seqno_increment = (unsigned short) fread(packet.data, sizeof(char), MAX_PAYLOAD_LENGTH, file)) == 0) {
+    packet_t* packet = calloc(1, sizeof(struct packet_t));
+    packet->data = calloc(MAX_PAYLOAD_LENGTH, sizeof(char));
+    if ((seqno_increment = (unsigned short) fread(packet->data, sizeof(char), MAX_PAYLOAD_LENGTH, file)) == 0) {
       // If it's NULL, it's time to send a FIN packet and break out.
       // Build.
-      packet.type     = FIN;
-      packet.seqno    = 0;
-      packet.ackno    = 0;
-      packet.payload  = 0;
-      packet.window   = 0;
-      strcpy(packet.data, "");
-      packet_string = render_packet(&packet);
+      packet->type     = FIN;
+      packet->seqno    = 0;
+      packet->ackno    = 0;
+      packet->payload  = 0;
+      packet->window   = 0;
+      strcpy(packet->data, "");
+      packet_string = render_packet(packet);
       // Send.
-      log_packet('s', host_address, peer_address, &packet);
+      log_packet('s', host_address, peer_address, packet);
       sendto(socket_fd, packet_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
-      free(packet_string);
       fprintf(stderr, "Setting state to exit.\n");
-      *system_state = EXIT;
+      // *system_state = EXIT;
       break;
     } else {
       // Build.
-      packet.type     = DAT;
-      packet.seqno    = *current_seqno; // TODO: Might need +1
-      packet.ackno    = 0;
-      packet.payload  = 0;
-      packet.window   = 0;
-      packet_string = render_packet(&packet);
+      packet->type     = DAT;
+      packet->seqno    = *current_seqno; // TODO: Might need +1
+      packet->ackno    = 0;
+      packet->payload  = seqno_increment;
+      packet->window   = 0;
+      // packet_string = render_packet(&packet);
       // Send.
-      log_packet('s', host_address, peer_address, &packet);
-      sendto(socket_fd, packet_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
-
+      // log_packet('s', host_address, peer_address, &packet);
+      // sendto(socket_fd, packet_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
+      head = add_to_timers(head, packet);
       // Increment the number of packets sent.
-      free(packet_string);
+      // free(packet_string);
       if (seqno_increment != MAX_PAYLOAD_LENGTH) {
         sent_packets++;
       }
@@ -190,22 +199,42 @@ void send_ACK(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_i
   return;
 }
 // (Re)send a DAT packet.
-void resend_DAT(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet) {
+void resend_packet(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet) {
   // Timer
-  time_t timer;
-  packet->timeout = time(&timer) + TIMEOUT;
+  gettimeofday(&packet->timeout, NULL);
   // Resend packet.
-  sendto(socket_fd, packet, MAX_PACKET_LENGTH, 0, (struct sockaddr*) &peer_address, peer_address_size);
+  char* buffer = render_packet(packet);
+  sendto(socket_fd, buffer, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
   // Since we don't need to manipulate the queue it's cool, just return the head.
   return;
 }
+
+packet_t* add_to_timers(packet_t* timeout_queue, packet_t* packet) {
+  packet_t* current_position = timeout_queue;
+  if (current_position != NULL) {
+    while (current_position->next != NULL) {
+      current_position = current_position->next;
+    }
+    packet->next = current_position->next;
+    current_position->next = packet;
+    packet->timeout.tv_usec = 0;
+  } else {
+    fprintf(stderr, "Making new head\n");
+    timeout_queue = packet;
+    packet->timeout.tv_usec = 0;
+  }
+  return timeout_queue;
+}
+
 // Remove packets up to the given packet's ackno.
 packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout_queue) {
+  fprintf(stderr, "Removing a packet\n");
   packet_t* head = timeout_queue;
   packet_t* current = head;
   // Try to find the packet this corresponds to. Actually, we want the one before it. (We need to unlink it)
-  while (current->next != NULL) {
-    if (current->next->seqno < packet->ackno) {
+  while (current != NULL && current->next != NULL) {
+    if (current->next->seqno == packet->ackno) {
+      fprintf(stderr, "Acout to remove packet!!!!!\n");
       // Remove it from the queue.
       packet_t* target = current->next;
       current->next = target->next;

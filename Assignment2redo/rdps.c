@@ -100,7 +100,10 @@ int main(int argc, char* argv[]) {
         // Didn't read anything.
         // Find a packet that has timed out.
         packet = get_timedout_packet(timeout_queue); // Returns NULL if no packet has timeout.
-        if (packet != NULL) { log_type = 'S'; }
+        if (packet != NULL) { 
+          fprintf(stderr, "Packet is %d\n", packet);
+          log_type = 'S'; 
+        }
       } else {
         // Got a packet, need to parse it.
         packet = parse_packet(buffer);
@@ -132,7 +135,7 @@ int main(int argc, char* argv[]) {
             break;
           case TRANSFER:
             // Drop the packet from timers.
-            // timeout_queue = remove_packet_from_timers_by_ackno(packet, timeout_queue);
+            timeout_queue = remove_packet_from_timers_by_ackno(packet, timeout_queue);
             // Send some new data packets to fill that window.
             timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &host_address, &peer_address, 
                               peer_address_size, file, &system_seqno, 
@@ -145,7 +148,7 @@ int main(int argc, char* argv[]) {
       case DAT:
         // This is a packet we need to resend. (Or the reciever sent us a DAT, in that case, wtf mate?)
         // We know there is room here since it timed out. :)
-        resend_DAT(socket_fd, &peer_address, peer_address_size, packet);
+        resend_packet(socket_fd, &peer_address, peer_address_size, packet);
         break;
       case RST:
         // Need to restart the connection.

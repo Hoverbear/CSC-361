@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
         system_state = HANDSHAKE;
         break;
       case FIN:
-        system_state = EXIT;
+        // system_state = EXIT;
         // Finished the file. We can send a FIN back and close up shop.
         packet_string = render_packet(packet);
         // Send.

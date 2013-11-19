@@ -16,7 +16,7 @@
 #include <arpa/inet.h>
 
 #define MAX_PACKET_LENGTH 1024  // Based on spec.
-#define TIMEOUT 2               // 2 seconds.
+#define TIMEOUT 30000             // 300 Milliseconds
 #define MAX_PAYLOAD_LENGTH 900  // Conservative.
 #define MAX_WINDOW_SIZE_IN_PACKETS 10
 #define MAX_SHORT 65535
@@ -59,7 +59,7 @@ typedef struct packet_t {
                                       // Empty line goes here.
   char*               data;           // The data of the payload.
   // Not in the actual packet.
-  time_t              timeout;        // The time the packet times out.
+  struct timeval      timeout;        // The time the packet times out.
   struct packet_t*    next;           // The rest of the queue, if it's being handled.
 } packet_t;
 
@@ -97,10 +97,10 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
 // Send an ACK for the given seqno.
 void send_ACK(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, short seqno, short window_size);
 // (Re)send a DAT packet.
-void resend_DAT(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet);
+void resend_packet(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet);
 // Remove packets up to the given packet's ackno.
 packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout_queue);
-
+packet_t* add_to_timers(packet_t* timeout_queue, packet_t* packet);
 //////////////////
 // Files        //
 //////////////////
