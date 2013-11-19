@@ -85,8 +85,8 @@ char* render_packet(packet_t* source) {
 // Sets the initial sequence number.
 unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, struct sockaddr_in* host_address) {
   srand (time(NULL));
-  // unsigned short seqno = (unsigned short) (rand() % 65530);
-  unsigned short seqno = 0;
+  unsigned short seqno = (unsigned short) (rand() % 65530);
+  // unsigned short seqno = 0;
   // Build a SYN packet.
   packet_t syn_packet;
   syn_packet.type     = SYN;
@@ -129,10 +129,10 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
   packet_t* head = timeout_queue;
   // Calculate the number of packets to send given the window size.
   unsigned short initial_seqno = *current_seqno;
-  int packets_to_send = (last_ack->window - (*current_seqno - last_ack->ackno)) / MAX_PAYLOAD_LENGTH;
+  int packets_to_send = last_ack->window  / MAX_PAYLOAD_LENGTH;
   int sent_packets = 0;
   char* packet_string;
-  while (sent_packets < packets_to_send && last_ack->window - (*current_seqno - initial_seqno) >= 0) {
+  while (sent_packets < packets_to_send) {
     // TODO: Verify this works!
     // Read in data from file.
     unsigned short seqno_increment = 0;
@@ -157,6 +157,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
       }
       break;
     } else {
+      fprintf(stderr, "         ----Block write %d/%d have win %d----\n", sent_packets+1, packets_to_send, last_ack->window);
       // Build.
       packet->type     = DAT;
       packet->seqno    = *current_seqno; // TODO: Might need +1
@@ -173,6 +174,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
       if (seqno_increment != MAX_PAYLOAD_LENGTH) {
         sent_packets++;
       } else {
+        sent_packets++;
         *current_seqno += seqno_increment;
       }
     }
