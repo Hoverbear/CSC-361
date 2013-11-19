@@ -100,16 +100,20 @@ int main(int argc, char* argv[]) {
         // Didn't read anything.
         // Find a packet that has timed out.
         packet = get_timedout_packet(timeout_queue); // Returns NULL if no packet has timeout.
-        if (packet != NULL) { 
+        if (packet != NULL && packet->timeout.tv_usec == 0) { 
           // fprintf(stderr, "Packet is %d\n", packet);
+          log_type = 's'; 
+        } else {
           log_type = 'S'; 
         }
       } else {
         // Got a packet, need to parse it.
         packet = parse_packet(buffer);
          // TODO: This might be broken..
-        if (packet->ackno < system_seqno) { log_type = 'R'; }
-        else { log_type = 'r'; }
+        // if (packet->ackno < system_seqno) { log_type = 'R'; }
+        // else { 
+          log_type = 'r';
+         // }
       }
     }
     if (log_type) {
