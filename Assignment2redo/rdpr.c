@@ -133,10 +133,10 @@ int main(int argc, char* argv[]) {
         //temp_win_size = window_size;
         file_head = write_packet_to_window(packet, file_head, file, &window_size); // THIS UPDATED WINDOW_SIZE
         // fprintf(stderr, "Window size is %d\n", window_size);
-        if (window_size > 0) {
+        //if (window_size > 0) {
           statistics.ACK++;
           send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (int) (MAX_PAYLOAD_LENGTH * window_size));
-        }
+        //}
         break;
       case RST:
         //system_state = RESET;

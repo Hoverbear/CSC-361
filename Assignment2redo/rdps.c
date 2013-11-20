@@ -115,7 +115,6 @@ int main(int argc, char* argv[]) {
       } else {
         // Got a packet, need to parse it.
         packet = parse_packet(buffer);
-         // TODO: This might be broken..
         // if (packet->ackno < system_seqno) { log_type = 'R'; }
         // else { 
           log_type = 'r';

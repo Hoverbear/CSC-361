@@ -114,7 +114,7 @@ packet_t* get_timedout_packet(packet_t* timeout_queue) {
   gettimeofday(&now, NULL);
   // Get the first one we need to send.
   while (head != NULL) {
-    if (head->timeout.tv_usec == 0 || timercmp(&now, &head->timeout, >)) {
+    if (!timerisset(&head->timeout) || timercmp(&now, &head->timeout, >)) {
       return head;
     }
     head = head->next;
@@ -146,6 +146,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
         packet->payload  = 0;
         packet->window   = 0;
         strcpy(packet->data, "");
+        timerclear(&packet->timeout);
         // Send.
         //log_packet('s', host_address, peer_address, packet);
         head = add_to_timers(head, packet);
@@ -159,6 +160,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
       packet->ackno    = 0;
       packet->payload  = seqno_increment;
       packet->window   = 0;
+      timerclear(&packet->timeout);
       // packet_string = render_packet(&packet);
       // Send.
       // log_packet('s', host_address, peer_address, &packet);
@@ -205,18 +207,19 @@ void resend_packet(int socket_fd, struct sockaddr_in* peer_address, socklen_t pe
   struct timeval post_timeout;
   // Statistics
   statistics->total_data += packet->payload;
-  if (packet->timeout.tv_usec == 0) {
+  if (!timerisset(&packet->timeout)) {
     statistics->unique_data += packet->payload;
   }
   if (packet->type == DAT) {
     statistics->total_packets++;
-    if (packet->timeout.tv_usec == 0) {
+    if (!timerisset(&packet->timeout)) {
       statistics->unique_packets++;
     }
   }
   // End of statistics
   gettimeofday(&now, NULL);
-  post_timeout.tv_usec = TIMEOUT * 1000;
+  //post_timeout.tv_usec = TIMEOUT * MILLTONANO;
+  post_timeout.tv_sec = 1;
   timeradd(&now, &post_timeout, &packet->timeout);
   // Resend packet.
   char* buffer = render_packet(packet);
