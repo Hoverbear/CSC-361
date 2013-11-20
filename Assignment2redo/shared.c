@@ -112,14 +112,12 @@ packet_t* get_timedout_packet(packet_t* timeout_queue) {
   packet_t* head = timeout_queue;
   struct timeval now;
   gettimeofday(&now, NULL);
-  int steps = 0;
   // Get the first one we need to send.
   while (head != NULL) {
-    if (head->timeout.tv_usec == 0 || head->timeout.tv_usec > TIMEOUT * 5000) {
-      // fprintf(stderr, "Returning head %d %d %d\n", head->timeout.tv_usec, now.tv_usec, steps);
+    if (head->timeout.tv_usec == 0 || timercmp(&now, &head->timeout, >)) {
+      fprintf(stderr, "%d Detected a timeout on %d %d\n", head->timeout.tv_usec, head->seqno, head->type);
       return head;
     }
-    steps++;
     head = head->next;
   }
   return NULL;
@@ -143,7 +141,6 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
     packet->data = calloc(MAX_PAYLOAD_LENGTH+1, sizeof(char));
     if ((seqno_increment = (int) fread(packet->data, sizeof(char), MAX_PAYLOAD_LENGTH, file)) == 0) {
       // fprintf(stderr, "Should be EOF, ackno %d, cur %d\n", last_ack->ackno, *current_seqno);
-      // if (last_ack->ackno == *current_seqno ) {// If it's NULL, it's time to send a FIN packet and break out.
         // Build.
         packet->type     = FIN;
         packet->seqno    = *current_seqno;
@@ -151,16 +148,15 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
         packet->payload  = 0;
         packet->window   = 0;
         strcpy(packet->data, "");
-        packet_string = render_packet(packet);
         // Send.
-        log_packet('s', host_address, peer_address, packet);
-        sendto(socket_fd, packet_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
+        //log_packet('s', host_address, peer_address, packet);
+        head = add_to_timers(head, packet);
+        //sendto(socket_fd, packet_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
         fprintf(stderr, "Setting state to exit.\n");
-        // *system_state = EXIT;
-      // }
+        *system_state = EXIT;
       break;
     } else {
-      // fprintf(stderr, "         ----Block write %d/%d have win %d----\n", sent_packets+1, packets_to_send, last_ack->window);
+      fprintf(stderr, "Queueing a DAT\n");
       // Build.
       packet->type     = DAT;
       packet->seqno    = *current_seqno; // TODO: Might need +1
@@ -209,7 +205,11 @@ void send_ACK(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_i
 // (Re)send a DAT packet.
 void resend_packet(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet) {
   // Timer
-  gettimeofday(&packet->timeout, NULL);
+  struct timeval now;
+  struct timeval post_timeout;
+  gettimeofday(&now, NULL);
+  post_timeout.tv_usec = TIMEOUT * 1000;
+  timeradd(&now, &post_timeout, &packet->timeout);
   // Resend packet.
   char* buffer = render_packet(packet);
   sendto(socket_fd, buffer, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
@@ -246,7 +246,7 @@ packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout
   } else {
     while (current != NULL && current->next != NULL) {
       if (current->next->seqno == packet->ackno) {
-        fprintf(stderr, "Chopping off somewhere else in the timers %d\n", current->seqno);
+        fprintf(stderr, "Chopping off somewhere else in the timers %d\n", current->next->seqno);
         // Remove it from the queue.
         packet_t* target = current->next;
         current->next = target->next;

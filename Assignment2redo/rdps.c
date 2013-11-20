@@ -106,6 +106,9 @@ int main(int argc, char* argv[]) {
         } else {
           log_type = 'S'; 
         }
+        if (packet != NULL) {
+          fprintf(stderr, "LOOK THIS PACKET IS A %d\n", packet->type);
+        }
       } else {
         // Got a packet, need to parse it.
         packet = parse_packet(buffer);
@@ -165,9 +168,13 @@ int main(int argc, char* argv[]) {
         system_state = HANDSHAKE;
         break;
       case FIN:
-        // Got a FIN response.
-        log_statistics(statistics);
-        exit(0);
+        fprintf(stderr, "You got some asplinaing to do!");
+        if (log_type == 'r' || log_type == 'R') {// Got a FIN response.
+          log_statistics(statistics);
+          exit(0);
+        } else {
+          resend_packet(socket_fd, &peer_address, peer_address_size, packet);
+        }
         break;
       default:
         fprintf(stderr, "Packet was invalid type\n");
