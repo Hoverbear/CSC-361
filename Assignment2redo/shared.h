@@ -16,7 +16,7 @@
 #include <arpa/inet.h>
 
 #define MAX_PACKET_LENGTH 1024  // Based on spec.
-#define TIMEOUT 600// 300 Milliseconds
+#define TIMEOUT 600             // 300 Milliseconds
 #define MAX_PAYLOAD_LENGTH 900  // Conservative.
 #define MAX_WINDOW_SIZE_IN_PACKETS 10
 #define MAX_SHORT 65535

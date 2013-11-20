@@ -89,13 +89,30 @@ int main(int argc, char* argv[]) {
   enum system_states system_state = HANDSHAKE;
   // Connect
   int initial_seqno = 0;
-  char* buffer = calloc(MAX_PACKET_LENGTH+1, sizeof(char));
-  initial_seqno = send_SYN(socket_fd, &peer_address, peer_address_size, &host_address); // Sets the initial random sequence number.
   int system_seqno = initial_seqno;
+  char* buffer = calloc(MAX_PACKET_LENGTH+1, sizeof(char));
+  packet_t* packet = NULL;
   packet_t* timeout_queue = NULL; // Used for timeouts. Whenever you send DATs assign the return to this.
+  
+  while (system_state == HANDSHAKE) {
+    int the_bytes = recvfrom(socket_fd, buffer, MAX_PACKET_LENGTH+1, 0, (struct sockaddr*) &peer_address, &peer_address_size); // This socket is non-blocking.
+    if (the_bytes <= 0) {
+      statistics.SYN++;
+      initial_seqno = send_SYN(socket_fd, &peer_address, peer_address_size, &host_address); // Sets the initial random sequence number.
+      nanosleep((struct timespec[]){{0, TIMEOUT * MILLTONANO}}, NULL);
+    } else {
+      system_state = TRANSFER;
+      packet = parse_packet(buffer);     
+      statistics.ACK++;
+      timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &host_address, &peer_address, 
+                              peer_address_size, file, &system_seqno, 
+                              packet, timeout_queue, &system_state);
+      free(packet);
+    }
+  }
+  packet = NULL;
   // Used for logging exclusively.
   char log_type; // S, s, R, or r.
-  packet_t* packet = NULL;
   for (;;) {
     // First we need something to work on!
     while (packet == NULL) {
@@ -132,6 +149,7 @@ int main(int argc, char* argv[]) {
         exit(-1);
         break;
       case ACK:
+        statistics.ACK++;
         // Act depending on what's required.
         switch (system_state) {
           case HANDSHAKE:
@@ -174,6 +192,7 @@ int main(int argc, char* argv[]) {
           log_statistics(&statistics, 1);
           exit(0);
         } else {
+          statistics.FIN++;
           resend_packet(socket_fd, &peer_address, peer_address_size, packet, &statistics);
         }
         break;
