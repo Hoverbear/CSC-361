@@ -140,12 +140,12 @@ int main(int argc, char* argv[]) {
           case TRANSFER:
             // Drop the packet from timers.
             timeout_queue = remove_packet_from_timers_by_ackno(packet, timeout_queue);
-            if (packet->window == MAX_WINDOW_SIZE_IN_PACKETS * MAX_PAYLOAD_LENGTH) {
+            // if (packet->window == MAX_WINDOW_SIZE_IN_PACKETS * MAX_PAYLOAD_LENGTH) {
               // Send some new data packets to fill that window.
               timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &host_address, &peer_address, 
                               peer_address_size, file, &system_seqno, 
                               packet, timeout_queue, &system_state);
-            }
+            // }
             break;
           default:
             break;

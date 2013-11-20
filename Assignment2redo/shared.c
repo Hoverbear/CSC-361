@@ -131,7 +131,8 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
   unsigned short initial_seqno = *current_seqno;
   // (initial_seqno - last_ack->ackno) = Number of packets that we've sent that haven't been ACK'd.
   // This should give us the number of packets we want to send, because we know how many we've sent and we know how many the reciever has recieved.
-  int packets_to_send = MAX_WINDOW_SIZE_IN_PACKETS - ((initial_seqno - last_ack->ackno)  / MAX_PAYLOAD_LENGTH);
+  fprintf(stderr, "intial_seqno - ackno %d or %d\n", initial_seqno - last_ack->ackno, last_ack->ackno - initial_seqno);
+  int packets_to_send = MAX_WINDOW_SIZE_IN_PACKETS - ((abs((int) initial_seqno - (int) last_ack->ackno))  / MAX_PAYLOAD_LENGTH);
   fprintf(stderr, "   I should send %d packets now.\n", packets_to_send);
   int sent_packets = 0;
   char* packet_string;
