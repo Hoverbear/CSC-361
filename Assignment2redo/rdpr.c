@@ -84,6 +84,7 @@ int main(int argc, char* argv[]) {
   //int temp_win_size = MAX_WINDOW_SIZE_IN_PACKETS;
   int window_size = MAX_WINDOW_SIZE_IN_PACKETS;
   char* buffer = calloc(MAX_PACKET_LENGTH+1, sizeof(char));
+  int acked_to = 0;
   //enum system_states system_state = HANDSHAKE;
   char* packet_string;
   for (;;) {
@@ -97,6 +98,12 @@ int main(int argc, char* argv[]) {
     packet = parse_packet(buffer);
     if (packet == NULL) {
       fprintf(stderr, "== Packet corrupt, dropped == \n%s\n== END ==\n", buffer);
+      continue;
+    }
+    if (packet->seqno < acked_to) {
+      statistics.total_data += packet->payload;
+      statistics.total_packets++;
+      send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, 0);
       continue;
     }
     char log_type = 'r';
@@ -113,6 +120,7 @@ int main(int argc, char* argv[]) {
         //system_seqno = initial_seqno;
         statistics.SYN++;
         statistics.ACK++;
+        acked_to = packet->seqno;
         send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (int) (MAX_PAYLOAD_LENGTH * window_size));
         break;
       case ACK:
@@ -134,9 +142,11 @@ int main(int argc, char* argv[]) {
         file_head = write_packet_to_window(packet, file_head, file, &window_size); // THIS UPDATED WINDOW_SIZE
         // fprintf(stderr, "Window size is %d\n", window_size);
         //if (window_size > 0) {
-          statistics.ACK++;
-          send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (int) (MAX_PAYLOAD_LENGTH * window_size));
-        //}
+        statistics.ACK++;
+        acked_to = packet->seqno;
+        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (int) (MAX_PAYLOAD_LENGTH * window_size));
+
+        
         break;
       case RST:
         //system_state = RESET;
