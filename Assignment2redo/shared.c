@@ -85,8 +85,8 @@ char* render_packet(packet_t* source) {
 // Sets the initial sequence number.
 unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, struct sockaddr_in* host_address) {
   srand (time(NULL));
-  unsigned short seqno = (unsigned short) (rand() % 65530);
-  // unsigned short seqno = 0;
+  // unsigned short seqno = (unsigned short) (rand() % 65530);
+  unsigned short seqno = 0;
   // Build a SYN packet.
   packet_t syn_packet;
   syn_packet.type     = SYN;
@@ -129,7 +129,10 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
   packet_t* head = timeout_queue;
   // Calculate the number of packets to send given the window size.
   unsigned short initial_seqno = *current_seqno;
-  int packets_to_send = last_ack->window  / MAX_PAYLOAD_LENGTH;
+  // (initial_seqno - last_ack->ackno) = Number of packets that we've sent that haven't been ACK'd.
+  // This should give us the number of packets we want to send, because we know how many we've sent and we know how many the reciever has recieved.
+  int packets_to_send = MAX_WINDOW_SIZE_IN_PACKETS - ((initial_seqno - last_ack->ackno)  / MAX_PAYLOAD_LENGTH);
+  fprintf(stderr, "   I should send %d packets now.\n", packets_to_send);
   int sent_packets = 0;
   char* packet_string;
   while (sent_packets < packets_to_send) {
@@ -140,7 +143,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
     packet->data = calloc(MAX_PAYLOAD_LENGTH+1, sizeof(char));
     if ((seqno_increment = (unsigned short) fread(packet->data, sizeof(char), MAX_PAYLOAD_LENGTH, file)) == 0) {
       // fprintf(stderr, "Should be EOF, ackno %d, cur %d\n", last_ack->ackno, *current_seqno);
-      if (last_ack->ackno == *current_seqno ) {// If it's NULL, it's time to send a FIN packet and break out.
+      // if (last_ack->ackno == *current_seqno ) {// If it's NULL, it's time to send a FIN packet and break out.
         // Build.
         packet->type     = FIN;
         packet->seqno    = *current_seqno;
@@ -154,7 +157,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
         sendto(socket_fd, packet_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
         fprintf(stderr, "Setting state to exit.\n");
         // *system_state = EXIT;
-      }
+      // }
       break;
     } else {
       // fprintf(stderr, "         ----Block write %d/%d have win %d----\n", sent_packets+1, packets_to_send, last_ack->window);
@@ -172,7 +175,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
       // Increment the number of packets sent.
       // free(packet_string);
       if (seqno_increment != MAX_PAYLOAD_LENGTH) {
-        sent_packets++;
+        sent_packets++; // Don't the seqno if this is the FIN.
       } else {
         sent_packets++;
         *current_seqno += seqno_increment;
@@ -237,19 +240,32 @@ packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout
   packet_t* head = timeout_queue;
   packet_t* current = head;
   // Try to find the packet this corresponds to. Actually, we want the one before it. (We need to unlink it)
-  while (current != NULL && current->next != NULL) {
-    if (current->next->seqno == packet->ackno) {
-      // Remove it from the queue.
-      packet_t* target = current->next;
-      current->next = target->next;
-      free(target->data);
-      free(target);
-    } else {
-      // Stop, this is obviously too far along in the queue.
-      break;
+  if (current->seqno == packet->ackno) {
+    fprintf(stderr, "Chopping the head off the timers. %d\n", current->seqno);
+    head = current->next;
+  } else {
+    while (current != NULL && current->next != NULL) {
+      if (current->next->seqno == packet->ackno) {
+        fprintf(stderr, "Chopping off somewhere else in the timers %d\n", current->seqno);
+        // Remove it from the queue.
+        packet_t* target = current->next;
+        current->next = target->next;
+        free(target->data);
+        free(target);
+        break;
+      } else {
+        // Stop, this is obviously too far along in the queue.
+        // break;
+      }
+      current = current->next;
     }
-    current = current->next;
   }
+  // Counter
+  // int temp_count = 1;
+  // packet_t* temp = head;
+  // do { fprintf(stderr, "temp->seqno: %d\n", temp->seqno); temp_count++; } while (((temp = temp->next) != NULL));
+  // fprintf(stderr, "Length of timers was was: %d\n", temp_count);
+  //
   return head;
 }
 
