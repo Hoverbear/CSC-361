@@ -130,7 +130,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
   // This should give us the number of packets we want to send, because we know how many we've sent and we know how many the reciever has recieved.
   int packets_to_send = MAX_WINDOW_SIZE_IN_PACKETS - ((initial_seqno - last_ack->ackno)  / MAX_PAYLOAD_LENGTH);
   int sent_packets = 0;
-  char* packet_string;
+  //char* packet_string;
   while (sent_packets < packets_to_send) {
     // TODO: Verify this works!
     // Read in data from file.
@@ -199,10 +199,22 @@ void send_ACK(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_i
   return;
 }
 // (Re)send a DAT packet.
-void resend_packet(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet) {
+void resend_packet(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet, statistics_t* statistics) {
   // Timer
   struct timeval now;
   struct timeval post_timeout;
+  // Statistics
+  statistics->total_data += packet->payload;
+  if (packet->timeout.tv_usec == 0) {
+    statistics->unique_data += packet->payload;
+  }
+  if (packet->type == DAT) {
+    statistics->total_packets++;
+    if (packet->timeout.tv_usec == 0) {
+      statistics->unique_packets++;
+    }
+  }
+  // End of statistics
   gettimeofday(&now, NULL);
   post_timeout.tv_usec = TIMEOUT * 1000;
   timeradd(&now, &post_timeout, &packet->timeout);
@@ -353,8 +365,55 @@ void log_packet(char event_type, struct sockaddr_in* source, struct sockaddr_in*
   return;
 }
 // Outputs the log file.
-void log_statistics(statistics_t statistics) {
-  fprintf(stdout, "When I'm done programming this, magic will be performed.");
-  // TODO
+void log_statistics(statistics_t* statistics, int is_sender) {
+  struct timeval now;
+  gettimeofday(&now, NULL);
+  struct timeval difference;
+  timersub(&now, &statistics->start_time, &difference);
+  if (is_sender) {
+    fprintf(stdout, "total data bytes send: %d\n"
+                    "unique data bytes sent: %d\n"
+                    "total data packets sent: %d\n"
+                    "unique data packets sent: %d\n"
+                    "SYN packets sent: %d\n"
+                    "FIN packets sent: %d\n"
+                    "RST packets send: %d\n"
+                    "ACK packets recieved: %d\n"
+                    "RST packets recieved: %d\n"
+                    "total time duration (second): %d.%d\n",
+                     statistics->total_data,
+                     statistics->unique_data,
+                     statistics->total_packets,
+                     statistics->unique_packets,
+                     statistics->SYN,
+                     statistics->FIN,
+                     statistics->RST,
+                     statistics->ACK,
+                     statistics->RST_2,
+                     (int) difference.tv_sec,
+                     (int) difference.tv_usec);
+  } else {
+    fprintf(stdout, "total data bytes recieved: %d\n"
+                    "unique data bytes reieved: %d\n"
+                    "total data packets recieved: %d\n"
+                    "unique data packets recieved: %d\n"
+                    "SYN packets recieved: %d\n"
+                    "FIN packets recieved: %d\n"
+                    "RST packets recieved: %d\n"
+                    "ACK packets sent: %d\n"
+                    "RST packet sent: %d\n"
+                    "total time duration (second): %d.%d\n",
+                     statistics->total_data,
+                     statistics->unique_data,
+                     statistics->total_packets,
+                     statistics->unique_packets,
+                     statistics->SYN,
+                     statistics->FIN,
+                     statistics->RST,
+                     statistics->ACK,
+                     statistics->RST_2,
+                     (int) difference.tv_sec,
+                     (int) difference.tv_usec);
+  }
   return;
 }

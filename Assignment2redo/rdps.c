@@ -15,6 +15,7 @@
 #include <netinet/in.h>   // Defines const/structs we need for internet domain addresses.
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <sys/time.h>
 
 // Internal Includes
 #include "shared.h"
@@ -59,7 +60,6 @@ int main(int argc, char* argv[]) {
   file            = fopen(file_name, "r");
   // Set up Host.
   socket_fd                    = socket(AF_INET, SOCK_DGRAM, 0);
-  fcntl(socket_fd, F_SETFL, O_NONBLOCK);
   host_address_size            = sizeof(struct sockaddr_in);
   if (socket_fd < 0) { fprintf(stderr, "Couldn't create a socket."); exit(-1); }
   host_address.sin_family      = AF_INET;
@@ -79,17 +79,23 @@ int main(int argc, char* argv[]) {
   if (bind(socket_fd, (struct sockaddr*) &host_address, sizeof(host_address)) < 0) {
     perror("Couldn't bind to socket");
   }
+  // Set to non-blocking.
+  fcntl(socket_fd, F_SETFL, O_NONBLOCK);
+  // Set up statistics
+  gettimeofday(&statistics.start_time, NULL);
   //////////////////
   // Sender       //
   //////////////////
-  int initial_seqno = send_SYN(socket_fd, &peer_address, peer_address_size, &host_address); // Sets the initial random sequence number.
-  int system_seqno = initial_seqno;
+  enum system_states system_state = HANDSHAKE;
+  // Connect
+  int initial_seqno = 0;
   char* buffer = calloc(MAX_PACKET_LENGTH+1, sizeof(char));
+  initial_seqno = send_SYN(socket_fd, &peer_address, peer_address_size, &host_address); // Sets the initial random sequence number.
+  int system_seqno = initial_seqno;
   packet_t* timeout_queue = NULL; // Used for timeouts. Whenever you send DATs assign the return to this.
   // Used for logging exclusively.
   char log_type; // S, s, R, or r.
   packet_t* packet = NULL;
-  enum system_states system_state = HANDSHAKE;
   for (;;) {
     // First we need something to work on!
     while (packet == NULL) {
@@ -154,7 +160,7 @@ int main(int argc, char* argv[]) {
       case DAT:
         // This is a packet we need to resend. (Or the reciever sent us a DAT, in that case, wtf mate?)
         // We know there is room here since it timed out. :)
-        resend_packet(socket_fd, &peer_address, peer_address_size, packet);
+        resend_packet(socket_fd, &peer_address, peer_address_size, packet, &statistics);
         break;
       case RST:
         // Need to restart the connection.
@@ -166,10 +172,10 @@ int main(int argc, char* argv[]) {
         break;
       case FIN:
         if (log_type == 'r' || log_type == 'R') {// Got a FIN response.
-          log_statistics(statistics);
+          log_statistics(&statistics, 1);
           exit(0);
         } else {
-          resend_packet(socket_fd, &peer_address, peer_address_size, packet);
+          resend_packet(socket_fd, &peer_address, peer_address_size, packet, &statistics);
         }
         break;
       default:

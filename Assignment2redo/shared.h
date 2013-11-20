@@ -20,6 +20,7 @@
 #define MAX_PAYLOAD_LENGTH 900  // Conservative.
 #define MAX_WINDOW_SIZE_IN_PACKETS 10
 #define MAX_SHORT 65535
+#define MILLTONANO 1000000
 // System states. Should be self descriptive.
 enum system_states {
   HANDSHAKE,
@@ -74,7 +75,7 @@ typedef struct statistics_t {            // (S/R Label) (Description)
   int    RST;                            // (Sent/Recieved) Number of RST packets.
   int    ACK;                            // (Recieved/Sent) Number of ACK packets.
   int    RST_2;                          // (Recieved/Sent) Number of RST packets (inverse!).
-  time_t start_time;                     // The start time, use it to calculate the total time.
+  struct timeval start_time;             // The start time, use it to calculate the total time.
 } statistics_t;
 
 //////////////////
@@ -97,7 +98,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
 // Send an ACK for the given seqno.
 void send_ACK(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, int seqno, int window_size);
 // (Re)send a DAT packet.
-void resend_packet(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet);
+void resend_packet(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet, statistics_t* statistics);
 // Remove packets up to the given packet's ackno.
 packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout_queue);
 packet_t* add_to_timers(packet_t* timeout_queue, packet_t* packet);
@@ -113,4 +114,4 @@ packet_t* write_packet_to_window(packet_t* packet, packet_t* head, FILE* file, i
 // Logs the given packet.
 void log_packet(char event_type, struct sockaddr_in* source, struct sockaddr_in* destination, packet_t* the_packet);
 // Outputs the log file.
-void log_statistics(statistics_t statistics);
+void log_statistics(statistics_t* statistics, int is_sender);
