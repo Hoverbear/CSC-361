@@ -115,7 +115,6 @@ packet_t* get_timedout_packet(packet_t* timeout_queue) {
   // Get the first one we need to send.
   while (head != NULL) {
     if (head->timeout.tv_usec == 0 || timercmp(&now, &head->timeout, >)) {
-      fprintf(stderr, "%d Detected a timeout on %d %d\n", head->timeout.tv_usec, head->seqno, head->type);
       return head;
     }
     head = head->next;
@@ -130,7 +129,6 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
   // (initial_seqno - last_ack->ackno) = Number of packets that we've sent that haven't been ACK'd.
   // This should give us the number of packets we want to send, because we know how many we've sent and we know how many the reciever has recieved.
   int packets_to_send = MAX_WINDOW_SIZE_IN_PACKETS - ((initial_seqno - last_ack->ackno)  / MAX_PAYLOAD_LENGTH);
-  fprintf(stderr, "   I should send %d packets now.\n", packets_to_send);
   int sent_packets = 0;
   char* packet_string;
   while (sent_packets < packets_to_send) {
@@ -152,11 +150,9 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
         //log_packet('s', host_address, peer_address, packet);
         head = add_to_timers(head, packet);
         //sendto(socket_fd, packet_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
-        fprintf(stderr, "Setting state to exit.\n");
         *system_state = EXIT;
       break;
     } else {
-      fprintf(stderr, "Queueing a DAT\n");
       // Build.
       packet->type     = DAT;
       packet->seqno    = *current_seqno; // TODO: Might need +1
@@ -227,7 +223,6 @@ packet_t* add_to_timers(packet_t* timeout_queue, packet_t* packet) {
     current_position->next = packet;
     packet->timeout.tv_usec = 0;
   } else {
-    fprintf(stderr, "Making new head\n");
     timeout_queue = packet;
     packet->timeout.tv_usec = 0;
   }
@@ -241,12 +236,10 @@ packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout
   packet_t* current = head;
   // Try to find the packet this corresponds to. Actually, we want the one before it. (We need to unlink it)
   if (current->seqno == packet->ackno) {
-    fprintf(stderr, "Chopping the head off the timers. %d\n", current->seqno);
     head = current->next;
   } else {
     while (current != NULL && current->next != NULL) {
       if (current->next->seqno == packet->ackno) {
-        fprintf(stderr, "Chopping off somewhere else in the timers %d\n", current->next->seqno);
         // Remove it from the queue.
         packet_t* target = current->next;
         current->next = target->next;
