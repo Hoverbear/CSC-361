@@ -51,10 +51,10 @@ enum packet_type {
 typedef struct packet_t {
   // Checksum, then Magic.
   enum packet_type    type;           // Type of packet.
-  unsigned short      seqno;          // Byte sequence number.
-  unsigned short      ackno;          // Byte acknowledgement number.
-  unsigned short      payload;        // Payload Length in bytes.
-  unsigned short      window;         // Window Size in bytes.
+  int      seqno;          // Byte sequence number.
+  int      ackno;          // Byte acknowledgement number.
+  int      payload;        // Payload Length in bytes.
+  int      window;         // Window Size in bytes.
                                       // Checksum goes here.
                                       // Empty line goes here.
   char*               data;           // The data of the payload.
@@ -88,14 +88,14 @@ packet_t* parse_packet(char* source);
 char* render_packet(packet_t* source);
 
 // Sets the initial sequence number.
-unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, struct sockaddr_in* host_address);
+int send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, struct sockaddr_in* host_address);
 // Finds (if applicable) a timed out packet from the queue.
 packet_t* get_timedout_packet(packet_t* timeout_queue);
 // Sends enough DAT packets to fill up the window give.
 packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size,
-                       FILE* file, unsigned short* current_seqno, packet_t* last_ack, packet_t* timeout_queue, enum system_states* system_state);
+                       FILE* file, int* current_seqno, packet_t* last_ack, packet_t* timeout_queue, enum system_states* system_state);
 // Send an ACK for the given seqno.
-void send_ACK(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, short seqno, short window_size);
+void send_ACK(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, int seqno, int window_size);
 // (Re)send a DAT packet.
 void resend_packet(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet);
 // Remove packets up to the given packet's ackno.

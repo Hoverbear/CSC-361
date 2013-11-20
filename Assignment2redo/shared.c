@@ -54,16 +54,16 @@ packet_t* parse_packet(char* source) {
   without_checksum += 3; // Don't include space, do later.
   // Get the seqno.
   without_checksum++;
-  result->seqno = (unsigned short) strtoul(without_checksum, &without_checksum, 10);
+  result->seqno = (int) strtoul(without_checksum, &without_checksum, 10);
   // Get the ackno.
   without_checksum++;
-  result->ackno = (unsigned short) strtoul(without_checksum, &without_checksum, 10);
+  result->ackno = (int) strtoul(without_checksum, &without_checksum, 10);
   // Get the payload.
   without_checksum++;
-  result->payload = (unsigned short) strtoul(without_checksum, &without_checksum, 10);
+  result->payload = (int) strtoul(without_checksum, &without_checksum, 10);
   // Get the payload.
   without_checksum++;
-  result->window = (unsigned short) strtoul(without_checksum, &without_checksum, 10);
+  result->window = (int) strtoul(without_checksum, &without_checksum, 10);
   // Get the data!
   without_checksum++;
   result->data = calloc(MAX_PAYLOAD_LENGTH, sizeof(char));
@@ -83,10 +83,10 @@ char* render_packet(packet_t* source) {
 }
 
 // Sets the initial sequence number.
-unsigned short send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, struct sockaddr_in* host_address) {
+int send_SYN(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, struct sockaddr_in* host_address) {
   srand (time(NULL));
-  // unsigned short seqno = (unsigned short) (rand() % 65530);
-  unsigned short seqno = 0;
+  // int seqno = (int) (rand() % 65530);
+  int seqno = 0;
   // Build a SYN packet.
   packet_t syn_packet;
   syn_packet.type     = SYN;
@@ -125,24 +125,23 @@ packet_t* get_timedout_packet(packet_t* timeout_queue) {
   return NULL;
 }
 // Sends enough DAT packets to fill up the window give.
-packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, FILE* file, unsigned short* current_seqno, packet_t* last_ack, packet_t* timeout_queue, enum system_states* system_state) {
+packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, FILE* file, int* current_seqno, packet_t* last_ack, packet_t* timeout_queue, enum system_states* system_state) {
   packet_t* head = timeout_queue;
   // Calculate the number of packets to send given the window size.
-  unsigned short initial_seqno = *current_seqno;
+  int initial_seqno = *current_seqno;
   // (initial_seqno - last_ack->ackno) = Number of packets that we've sent that haven't been ACK'd.
   // This should give us the number of packets we want to send, because we know how many we've sent and we know how many the reciever has recieved.
-  fprintf(stderr, "intial_seqno - ackno %d or %d\n", initial_seqno - last_ack->ackno, last_ack->ackno - initial_seqno);
-  int packets_to_send = MAX_WINDOW_SIZE_IN_PACKETS - ((abs((int) initial_seqno - (int) last_ack->ackno))  / MAX_PAYLOAD_LENGTH);
+  int packets_to_send = MAX_WINDOW_SIZE_IN_PACKETS - ((initial_seqno - last_ack->ackno)  / MAX_PAYLOAD_LENGTH);
   fprintf(stderr, "   I should send %d packets now.\n", packets_to_send);
   int sent_packets = 0;
   char* packet_string;
   while (sent_packets < packets_to_send) {
     // TODO: Verify this works!
     // Read in data from file.
-    unsigned short seqno_increment = 0;
+    int seqno_increment = 0;
     packet_t* packet = calloc(1, sizeof(struct packet_t));
     packet->data = calloc(MAX_PAYLOAD_LENGTH+1, sizeof(char));
-    if ((seqno_increment = (unsigned short) fread(packet->data, sizeof(char), MAX_PAYLOAD_LENGTH, file)) == 0) {
+    if ((seqno_increment = (int) fread(packet->data, sizeof(char), MAX_PAYLOAD_LENGTH, file)) == 0) {
       // fprintf(stderr, "Should be EOF, ackno %d, cur %d\n", last_ack->ackno, *current_seqno);
       // if (last_ack->ackno == *current_seqno ) {// If it's NULL, it's time to send a FIN packet and break out.
         // Build.
@@ -187,7 +186,7 @@ packet_t* send_enough_DAT_to_fill_window(int socket_fd, struct sockaddr_in* host
   return head;
 }
 // Send an ACK for the given seqno.
-void send_ACK(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, short seqno, short window_size) {
+void send_ACK(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, int seqno, int window_size) {
   // Build an ACK packet.
   packet_t ack_packet;
   ack_packet.type     = ACK;
@@ -290,7 +289,7 @@ packet_t* write_packet_to_window(packet_t* packet, packet_t* head, FILE* file, i
     // fprintf(stderr, "Traversing, since head is not null\n");
     while (selected_window_packet->next != NULL && (ttl--) != 0) {
       // Determine if there is a rollover.
-      unsigned short next_possible_seqno = selected_window_packet->seqno + MAX_PAYLOAD_LENGTH;
+      int next_possible_seqno = selected_window_packet->seqno + MAX_PAYLOAD_LENGTH;
       if (selected_window_packet->next->seqno != next_possible_seqno) {
         // If we're in this statement, it means we're not contiguous, so we can't flush the window.
         // fprintf(stderr, "No longer contig %d != %d\n", selected_window_packet->next->seqno, next_possible_seqno);

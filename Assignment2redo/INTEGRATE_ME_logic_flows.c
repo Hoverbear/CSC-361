@@ -2,8 +2,8 @@
 // Sender       //
 //////////////////
 // TODO: Make socket non-blocking.
-unsigned short initial_seqno = send_SYN(socket_fd, &peer_address, &peer_address_size); // Sets the initial random sequence number.
-unsigned short system_seqno = initial_seqno;
+int initial_seqno = send_SYN(socket_fd, &peer_address, &peer_address_size); // Sets the initial random sequence number.
+int system_seqno = initial_seqno;
 char* buffer = calloc(MAX_PAYLOAD+1, sizeof(char));
 packet_t* timeout_queue; // Used for timeouts. Whenever you send DATs assign the return to this.
 // Used for logging exclusively.
@@ -90,9 +90,9 @@ for (;;) {
 //////////////////
 // Reciever     //
 //////////////////
-unsigned short initial_seqno;
-unsigned short system_seqno;
-unsigned short temp_seqno_compare; // Used for handling the sliding window.
+int initial_seqno;
+int system_seqno;
+int temp_seqno_compare; // Used for handling the sliding window.
 char* window[WINDOW_SIZE_IN_PACKETS];
 for (;;) {
   // First we need something to work on!

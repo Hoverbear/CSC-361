@@ -75,8 +75,8 @@ int main(int argc, char* argv[]) {
   //////////////////
   // Reciever     //
   //////////////////
-  unsigned short initial_seqno;
-  unsigned short system_seqno;
+  int initial_seqno;
+  int system_seqno;
   packet_t* file_head = NULL;
   int temp_win_size = MAX_WINDOW_SIZE_IN_PACKETS;
   int window_size = MAX_WINDOW_SIZE_IN_PACKETS;
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
         system_state = TRANSFER;
         initial_seqno = packet->seqno;
         system_seqno = initial_seqno;
-        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (unsigned short) (MAX_PAYLOAD_LENGTH * window_size));
+        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (int) (MAX_PAYLOAD_LENGTH * window_size));
         break;
       case ACK:
         // Wait, why is the reciever getting an ACK?
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
         file_head = write_packet_to_window(packet, file_head, file, &window_size); // THIS UPDATED WINDOW_SIZE
         // fprintf(stderr, "Window size is %d\n", window_size);
         if (window_size > 0) {
-          send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (unsigned short) (MAX_PAYLOAD_LENGTH * window_size));
+          send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (int) (MAX_PAYLOAD_LENGTH * window_size));
         }
         break;
       case RST:
@@ -125,7 +125,7 @@ int main(int argc, char* argv[]) {
         // TODO: Rewind file pointer.
         // TODO: Empty the window.
         // TODO: Reset the connection, by sending an ACK.
-        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (unsigned short) (MAX_PAYLOAD_LENGTH * window_size));
+        send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (int) (MAX_PAYLOAD_LENGTH * window_size));
         system_state = HANDSHAKE;
         break;
       case FIN:
