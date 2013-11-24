@@ -87,6 +87,7 @@ int main(int argc, char* argv[]) {
   int acked_to = 0;
   //enum system_states system_state = HANDSHAKE;
   char* packet_string;
+  unsigned long first_addr = 0;
   for (;;) {
     memset(buffer, '\0', MAX_PACKET_LENGTH);
     // First we need something to work on!
@@ -95,6 +96,14 @@ int main(int argc, char* argv[]) {
     if (bytes == -1) {
       fprintf(stderr, "Error in receiving.\n");
     }
+    // Check for need to Reset.
+    if (first_addr == 0) {
+      first_addr = peer_address.sin_addr.s_addr;
+    } else if (first_addr != peer_address.sin_addr.s_addr) {
+      send_RST(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, 0);
+      exit(-1);
+    }
+    // 
     packet = parse_packet(buffer);
     if (packet == NULL) {
       fprintf(stderr, "== Packet corrupt, dropped == \n%s\n== END ==\n", buffer);
@@ -132,6 +141,7 @@ int main(int argc, char* argv[]) {
         statistics.total_packets++;
         if (log_type == 'r') {
           statistics.unique_packets++;
+          // Close and reopen the file.
         }
         statistics.total_data += packet->payload;
         if (log_type == 'r') {
@@ -150,11 +160,9 @@ int main(int argc, char* argv[]) {
         break;
       case RST:
         //system_state = RESET;
-        // TODO: Rewind file pointer.
-        // TODO: Empty the window.
-        // TODO: Reset the connection, by sending an ACK.
         statistics.RST++;
         send_ACK(socket_fd, &host_address, &peer_address, peer_address_size, packet->seqno, (int) (MAX_PAYLOAD_LENGTH * window_size));
+        exit(-1);
         //system_state = HANDSHAKE;
         break;
       case FIN:

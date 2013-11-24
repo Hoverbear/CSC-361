@@ -102,6 +102,7 @@ void resend_packet(int socket_fd, struct sockaddr_in* peer_address, socklen_t pe
 // Remove packets up to the given packet's ackno.
 packet_t* remove_packet_from_timers_by_ackno(packet_t* packet, packet_t* timeout_queue);
 packet_t* add_to_timers(packet_t* timeout_queue, packet_t* packet);
+void send_RST(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, int seqno, int window_size);
 //////////////////
 // Files        //
 //////////////////

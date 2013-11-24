@@ -200,6 +200,29 @@ void send_ACK(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_i
   // Return.
   return;
 }
+
+// Send an RST for the given seqno.
+void send_RST(int socket_fd, struct sockaddr_in* host_address, struct sockaddr_in* peer_address, socklen_t peer_address_size, int seqno, int window_size) {
+  // Build an ACK packet.
+  packet_t ack_packet;
+  ack_packet.type     = RST;
+  ack_packet.seqno    = 0;
+  ack_packet.ackno    = seqno;
+  ack_packet.payload  = 0;
+  ack_packet.window   = window_size;
+  ack_packet.data     = calloc(1, sizeof(char));
+  strcpy(ack_packet.data, "");
+  char* ack_string    = render_packet(&ack_packet);
+  log_packet('s', host_address, peer_address, &ack_packet);
+  // Send it.
+  sendto(socket_fd, ack_string, MAX_PACKET_LENGTH, 0, (struct sockaddr*) peer_address, peer_address_size);
+  // Free the stuff.
+  free(ack_packet.data);
+  free(ack_string);
+  // Return.
+  return;
+}
+
 // (Re)send a DAT packet.
 void resend_packet(int socket_fd, struct sockaddr_in* peer_address, socklen_t peer_address_size, packet_t* packet, statistics_t* statistics) {
   // Timer
@@ -360,10 +383,12 @@ void log_packet(char event_type, struct sockaddr_in* source, struct sockaddr_in*
   nowtm = localtime(&nowtime);
   strftime(time_string, 100, "%H:%M:%S", nowtm);
   // Format the log.
-  fprintf(stdout, "%s.%06li %c %s:%d %s:%d %s %d/%d %d/%d\n", time_string, (long int) tv.tv_usec,
-          event_type, inet_ntoa(source->sin_addr), source->sin_port, inet_ntoa(destination->sin_addr),
+  fprintf(stdout, "%s.%06li %c %s:%d ", time_string, (long int) tv.tv_usec,
+          event_type, inet_ntoa(source->sin_addr), source->sin_port);
+  fprintf(stdout, "%s:%d %s %d/%d %d/%d\n", inet_ntoa(destination->sin_addr),
           destination->sin_port, packet_type_array[the_packet->type], the_packet->seqno,
           the_packet->ackno, the_packet->payload, the_packet->window);
+
   // Return.
   return;
 }

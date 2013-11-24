@@ -182,10 +182,7 @@ int main(int argc, char* argv[]) {
       case RST:
         // Need to restart the connection.
         system_state = RESET;
-        // TODO: Rewind file pointer.
-        // TODO: Empty packet queue.
-        // TODO: Reset the connection, by sending a SYN.
-        system_state = HANDSHAKE;
+        exit(-1);
         break;
       case FIN:
         if (log_type == 'r' || log_type == 'R') {// Got a FIN response.
@@ -194,6 +191,10 @@ int main(int argc, char* argv[]) {
         } else {
           statistics.FIN++;
           resend_packet(socket_fd, &peer_address, peer_address_size, packet, &statistics);
+          if (statistics.FIN >= 3) {
+            log_statistics(&statistics, 1);
+            exit(0);
+          }
         }
         break;
       default:
