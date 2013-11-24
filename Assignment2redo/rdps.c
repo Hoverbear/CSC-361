@@ -156,6 +156,7 @@ int main(int argc, char* argv[]) {
             system_state = TRANSFER;
             // We're handshaked, start sending files.
             // Don't update the seqno until we get ACKs.
+            system_seqno = 1;
             timeout_queue = send_enough_DAT_to_fill_window(socket_fd, &host_address, &peer_address, 
                               peer_address_size, file, &system_seqno, 
                               packet, timeout_queue, &system_state);
